@@ -102,11 +102,21 @@ export default function OpenTradesPage() {
   const [tradeToClose, setTradeToClose] = useState<Trade | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: openTrades, loading } = useCollection<Trade>(
+  const { data: rawOpenTrades, loading } = useCollection<Trade>(
     user ? `users/${user.uid}/trades` : '',
-    where('closeDate', '==', null),
-    orderBy('openDate', 'desc')
+    where('closeDate', '==', null)
+    // Removed orderBy to prevent composite index requirement
   );
+
+  // Sort trades on the client-side
+  const openTrades = useMemo(() => {
+    if (!rawOpenTrades) return [];
+    return [...rawOpenTrades].sort((a, b) => {
+      const dateA = (a.openDate as Timestamp)?.toDate() || new Date(0);
+      const dateB = (b.openDate as Timestamp)?.toDate() || new Date(0);
+      return dateB.getTime() - dateA.getTime(); // Descending order
+    });
+  }, [rawOpenTrades]);
 
 
   // 2. Setup form untuk modal "Tutup Posisi"
