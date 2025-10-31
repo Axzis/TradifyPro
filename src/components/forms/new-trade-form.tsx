@@ -47,10 +47,6 @@ const formSchema = z.object({
 .refine(data => (data.exitPrice && !data.closeDate) || (!data.exitPrice && data.closeDate) ? false : true, {
     message: "Harga keluar dan tanggal tutup harus diisi bersamaan.",
     path: ["exitPrice"],
-})
-.refine(data => data.closeDate && data.openDate && data.closeDate < data.openDate ? false : true, {
-    message: "Tanggal tutup tidak boleh sebelum tanggal buka.",
-    path: ["closeDate"],
 });
 
 
@@ -73,10 +69,14 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           closeDate: tradeToEdit.closeDate ? (tradeToEdit.closeDate as any).toDate() : null,
           entryPrice: tradeToEdit.entryPrice || 0,
           positionSize: tradeToEdit.positionSize || 0,
-          stopLossPrice: tradeToEdit.stopLossPrice || null,
-          takeProfitPrice: tradeToEdit.takeProfitPrice || null,
-          commission: tradeToEdit.commission || null,
-          exitPrice: tradeToEdit.exitPrice || null,
+          stopLossPrice: tradeToEdit.stopLossPrice ?? null,
+          takeProfitPrice: tradeToEdit.takeProfitPrice ?? null,
+          commission: tradeToEdit.commission ?? null,
+          exitPrice: tradeToEdit.exitPrice ?? null,
+          entryReason: tradeToEdit.entryReason ?? "",
+          tags: tradeToEdit.tags ?? [],
+          imageUrlBefore: tradeToEdit.imageUrlBefore ?? "",
+          imageUrlAfter: tradeToEdit.imageUrlAfter ?? "",
         }
       : {
           ticker: "",
@@ -210,7 +210,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
                 <FormItem><FormLabel>Harga Keluar (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="cth: 110.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="closeDate" render={({ field }) => (
-             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
             )} />
         </div>
 
