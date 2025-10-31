@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, UploadCloud } from "lucide-react";
 import { format } from "date-fns";
+import { Separator } from "@/components/ui/separator";
 
 import { IKContext, IKUpload } from 'imagekitio-react';
 
@@ -42,6 +43,14 @@ const formSchema = z.object({
   closeDate: z.date().optional().nullable(),
   imageUrlBefore: z.string().optional(),
   imageUrlAfter: z.string().optional(),
+})
+.refine(data => (data.exitPrice && !data.closeDate) || (!data.exitPrice && data.closeDate) ? false : true, {
+    message: "Harga keluar dan tanggal tutup harus diisi bersamaan.",
+    path: ["exitPrice"],
+})
+.refine(data => data.closeDate && data.openDate && data.closeDate < data.openDate ? false : true, {
+    message: "Tanggal tutup tidak boleh sebelum tanggal buka.",
+    path: ["closeDate"],
 });
 
 
@@ -78,9 +87,9 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           openDate: new Date(),
           entryPrice: "" as any,
           positionSize: "" as any,
-          stopLossPrice: "" as any,
-          takeProfitPrice: "" as any,
-          commission: "" as any,
+          stopLossPrice: null,
+          takeProfitPrice: null,
+          commission: null,
           exitPrice: null,
           closeDate: null,
           imageUrlBefore: "",
@@ -95,11 +104,20 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     }
     setIsSubmitting(true);
     
+    const dataToSave = {
+        ...values,
+        exitPrice: values.exitPrice || null,
+        closeDate: values.closeDate || null,
+        stopLossPrice: values.stopLossPrice || null,
+        takeProfitPrice: values.takeProfitPrice || null,
+        commission: values.commission || null,
+    }
+
     try {
       if (tradeToEdit) {
         const tradeRef = doc(db, "users", user.uid, "trades", tradeToEdit.id);
         await updateDoc(tradeRef, {
-          ...values,
+          ...dataToSave,
           userId: user.uid,
           updatedAt: serverTimestamp(),
         });
@@ -109,7 +127,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
         });
       } else {
         await addDoc(collection(db, "users", user.uid, "trades"), {
-            ...values,
+            ...dataToSave,
             userId: user.uid,
             createdAt: serverTimestamp(),
         });
@@ -157,6 +175,9 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           )} />
         </div>
 
+        <Separator />
+        <h3 className="text-lg font-medium">Detail Entry</h3>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <FormField control={form.control} name="openDate" render={({ field }) => (
              <FormItem className="flex flex-col"><FormLabel>Tanggal Buka</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
@@ -180,6 +201,21 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
             <FormItem><FormLabel>Harga Take Profit (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
           )} />
         </div>
+
+        <Separator />
+        <h3 className="text-lg font-medium">Detail Exit (Opsional)</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FormField control={form.control} name="exitPrice" render={({ field }) => (
+                <FormItem><FormLabel>Harga Keluar (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="cth: 110.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="closeDate" render={({ field }) => (
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date() || date < new Date("1900-01-01")} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+            )} />
+        </div>
+
+        <Separator />
+        <h3 className="text-lg font-medium">Jurnal & Lampiran</h3>
 
         <div className="space-y-4">
             <FormField control={form.control} name="tags" render={({ field }) => (
@@ -241,5 +277,3 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     </Form>
   );
 }
-
-    
