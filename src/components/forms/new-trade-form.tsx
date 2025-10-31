@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, UploadCloud } from "lucide-react";
 import { format } from "date-fns";
 
-import { IKContext, IKUpload } from 'imagekit-io-react';
+import { IKContext, IKUpload } from 'imagekitio-react';
 
 const formSchema = z.object({
   ticker: z.string().min(1, "Ticker wajib diisi").toUpperCase(),
