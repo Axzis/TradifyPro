@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, ArrowUpDown, Loader2 } from "lucide-react";
@@ -30,13 +30,16 @@ import {
 } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format } from "date-fns";
+import { format, toDate } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import type { Timestamp } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useCollection } from "@/hooks/use-firestore";
 import type { Trade } from "@/types/trade";
 import { db } from "@/lib/firebase";
 import { deleteDoc, doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
+import { ASSET_TYPES } from "@/lib/constants";
 
 const calculatePnl = (trade: Trade) => {
     if (trade.exitPrice === null || trade.exitPrice === undefined) return 0;
@@ -50,7 +53,7 @@ export default function TradeHistoryPage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const { data: trades, loading } = useCollection<Trade>(
+  const { data: rawTrades, loading } = useCollection<Trade>(
     user ? `users/${user.uid}/trades` : ''
   );
 
@@ -58,6 +61,31 @@ export default function TradeHistoryPage() {
   const [isDetailOpen, setDetailOpen] = useState(false);
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Filters
+  const [filterDateRange, setFilterDateRange] = useState<DateRange | undefined>(undefined);
+  const [filterAssetType, setFilterAssetType] = useState<string>('all');
+  const [filterResult, setFilterResult] = useState<string>('all');
+
+  const filteredTrades = useMemo(() => {
+    if (!rawTrades) return [];
+    return rawTrades.filter(trade => {
+        const tradeDate = toDate((trade.openDate as Timestamp).seconds * 1000);
+
+        if (filterDateRange?.from && tradeDate < filterDateRange.from) return false;
+        if (filterDateRange?.to && tradeDate > filterDateRange.to) return false;
+        if (filterAssetType !== 'all' && trade.assetType !== filterAssetType) return false;
+        
+        if (filterResult !== 'all') {
+            const pnl = calculatePnl(trade);
+            if (filterResult === 'win' && pnl <= 0) return false;
+            if (filterResult === 'loss' && pnl >= 0) return false;
+            if (filterResult === 'be' && pnl !== 0) return false;
+        }
+        
+        return true;
+    });
+  }, [rawTrades, filterDateRange, filterAssetType, filterResult]);
 
   const handleSelectTrade = (trade: Trade) => {
     setSelectedTrade(trade);
@@ -100,19 +128,19 @@ export default function TradeHistoryPage() {
         description="Tinjau dan analisis semua trade yang telah selesai."
       />
       
-      <div className="flex items-center space-x-2">
-        <DatePickerWithRange />
-        <Select>
+      <div className="flex flex-wrap items-center gap-2">
+        <DatePickerWithRange onDateChange={setFilterDateRange} />
+        <Select value={filterAssetType} onValueChange={setFilterAssetType}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Semua Aset" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="saham">Saham</SelectItem>
-            <SelectItem value="kripto">Kripto</SelectItem>
-            <SelectItem value="forex">Forex</SelectItem>
+            <SelectItem value="all">Semua Aset</SelectItem>
+            {ASSET_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Select>
+        <Select value={filterResult} onValueChange={setFilterResult}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Semua Hasil" /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">Semua Hasil</SelectItem>
             <SelectItem value="win">Win</SelectItem>
             <SelectItem value="loss">Loss</SelectItem>
             <SelectItem value="be">Break-even</SelectItem>
@@ -151,7 +179,14 @@ export default function TradeHistoryPage() {
                       <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
                   </TableRow>
               ))}
-              {!loading && trades?.map((trade) => {
+              {!loading && filteredTrades?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={7} className="h-24 text-center">
+                        Belum ada riwayat transaksi.
+                    </TableCell>
+                </TableRow>
+              )}
+              {!loading && filteredTrades?.map((trade) => {
                   const pnl = calculatePnl(trade);
                   const result = pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "BE";
 
@@ -285,3 +320,5 @@ export default function TradeHistoryPage() {
 function Separator() {
     return <div className="border-t border-border" />;
 }
+
+    
