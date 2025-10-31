@@ -81,7 +81,7 @@ export default function DashboardPage() {
       if (valueInIDR >= 1_000) {
           return `Rp${(valueInIDR / 1_000).toFixed(0)}rb`;
       }
-      return `Rp${valueInIDR}`;
+      return `Rp${valueInIDR.toFixed(0)}`;
   }
 
   const uniqueStrategies = useMemo(() => {
@@ -106,7 +106,6 @@ export default function DashboardPage() {
 
     // 2. Calculations from filtered trades
     let totalNetPnL = 0, totalGains = 0, totalLosses = 0, totalWins = 0, totalLossesCount = 0, totalRMultiple = 0, totalInitialRisk = 0;
-    const pnlPerAsset: { [key: string]: { ticker: string, pnl: number } } = {};
 
     for (const trade of filteredTrades) {
         const pnl = calculatePnl(trade);
@@ -133,7 +132,7 @@ export default function DashboardPage() {
     const winRate = totalTrades > 0 ? (totalWins / totalTrades) * 100 : 0;
     const avgWin = totalWins > 0 ? totalGains / totalWins : 0;
     const avgLoss = totalLossesCount > 0 ? totalLosses / totalLossesCount : 0;
-    const avgRMultiple = totalWins + totalLossesCount > 0 ? totalRMultiple / (totalWins + totalLossesCount) : 0;
+    const avgRMultiple = totalTrades > 0 ? totalRMultiple / totalTrades : 0;
 
     // 3. True Equity Calculation
     const totalDepositsUSD = (rawEquityTxs?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0);
@@ -141,19 +140,23 @@ export default function DashboardPage() {
     const pnlFromAllClosedTrades = (rawTrades?.filter(t => t.closeDate).reduce((acc, trade) => acc + calculatePnl(trade), 0)) || 0;
     const currentEquity = totalDepositsUSD - totalWithdrawsUSD + pnlFromAllClosedTrades;
     
-    // Equity Curve based on filtered trades + all equity txs
-    const equityEvents = (rawEquityTxs || []).map(tx => ({ date: (tx.date as any).toDate(), amount: tx.type === 'deposit' ? tx.amount : -tx.amount }));
-    const pnlEvents = filteredTrades.map(trade => ({ date: (trade.closeDate as any).toDate(), amount: calculatePnl(trade) }));
-    const allTransactions = [...equityEvents, ...pnlEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
+    // Equity Curve based on ALL transactions
+    const allEquityEvents = (rawEquityTxs || []).map(tx => ({ date: (tx.date as any).toDate(), amount: tx.type === 'deposit' ? tx.amount : -tx.amount, isTrade: false }));
+    const allPnlEvents = (closedTrades).map(trade => ({ date: (trade.closeDate as any).toDate(), amount: calculatePnl(trade), isTrade: true }));
     
-    let runningEquity = totalDepositsUSD - totalWithdrawsUSD + pnlFromAllClosedTrades - totalNetPnL; // Start from equity before the filtered period
-    const equityCurve = allTransactions.map(tx => {
+    const allTransactions = [...allEquityEvents, ...allPnlEvents].sort((a, b) => a.date.getTime() - b.date.getTime());
+    
+    let runningEquity = 0;
+    const equityCurve = allTransactions.reduce((acc, tx) => {
         runningEquity += tx.amount;
-        return {
-          date: tx.date.toLocaleDateString('en-CA'),
-          equity: runningEquity
-        };
-    });
+        if (acc.length === 0 || acc[acc.length - 1].date !== tx.date.toLocaleDateString('en-CA')) {
+           acc.push({ date: tx.date.toLocaleDateString('en-CA'), equity: runningEquity });
+        } else {
+           acc[acc.length - 1].equity = runningEquity;
+        }
+        return acc;
+    }, [] as {date: string, equity: number}[]);
+
 
     return {
         totalPnl: totalNetPnL,
@@ -174,8 +177,8 @@ export default function DashboardPage() {
     { title: "Total P/L (Filtered)", value: formatToRupiah(analytics.totalPnl * (conversionRate||16000)), subValue: formatToUSD(analytics.totalPnl), isPositive: analytics.totalPnl >= 0, change: "" },
     { title: "Total Profit (Filtered)", value: formatToRupiah(analytics.totalProfit * (conversionRate||16000)), subValue: formatToUSD(analytics.totalProfit), isPositive: true, change: "" },
     { title: "Total Loss (Filtered)", value: formatToRupiah(analytics.totalLoss * (conversionRate||16000)), subValue: formatToUSD(analytics.totalLoss), isPositive: false, change: "" },
-    { title: "Win Rate", value: `${analytics.winRate.toFixed(1)}%`, change: "" },
-    { title: "Total Trades (Filtered)", value: analytics.totalTrades.toString(), change: "" },
+    { title: "Win Rate", value: `${analytics.winRate.toFixed(1)}%`, subValue: null, change: "" },
+    { title: "Total Trades (Filtered)", value: analytics.totalTrades.toString(), subValue: null, change: "" },
     { title: "Avg. Win", value: formatToRupiah(analytics.avgWin * (conversionRate||16000)), subValue: formatToUSD(analytics.avgWin), isPositive: true },
     { title: "Avg. Loss", value: formatToRupiah(analytics.avgLoss * (conversionRate||16000)), subValue: formatToUSD(analytics.avgLoss), isPositive: false },
     { title: "Avg. R-Multiple", value: `${analytics.avgRMultiple.toFixed(2)} R`, subValue: null },
@@ -253,51 +256,51 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <ChartContainer config={{}} className="h-[350px] w-full">
-            <AreaChart data={analytics.equityCurve} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-              <defs>
-                <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="date" tickLine={false} axisLine={false} />
-              <YAxis 
-                tickLine={false} 
-                axisLine={false} 
-                domain={['dataMin', 'dataMax']}
-                tickFormatter={(value) => formatYAxis(value)}
-              />
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const valueInUSD = payload[0].value as number;
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="grid grid-cols-1 gap-2">
-                          <div className="flex flex-col">
-                            <span className="text-xs uppercase text-muted-foreground">Equity</span>
-                            <span className="font-bold text-foreground">
-                              {isEquityVisible ? formatToUSD(valueInUSD) : '••••••'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                               {isEquityVisible ? formatToRupiah(valueInUSD * (conversionRate || 16000)) : '••••••'}
-                            </span>
+            <ResponsiveContainer>
+                <AreaChart data={analytics.equityCurve} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tickLine={false} axisLine={false} tickFormatter={(str) => new Date(str).toLocaleDateString('id-ID', { month: 'short', day: 'numeric'})} />
+                  <YAxis 
+                    tickLine={false} 
+                    axisLine={false} 
+                    domain={['dataMin', 'dataMax']}
+                    tickFormatter={(value) => formatYAxis(value as number)}
+                  />
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const valueInUSD = payload[0].value as number;
+                        return (
+                          <div className="rounded-lg border bg-background p-2 shadow-sm">
+                            <div className="grid grid-cols-1 gap-2">
+                              <div className="flex flex-col">
+                                <span className="text-xs uppercase text-muted-foreground">Equity</span>
+                                <span className="font-bold text-foreground">
+                                  {isEquityVisible ? formatToUSD(valueInUSD) : '••••••'}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                   {isEquityVisible ? formatToRupiah(valueInUSD * (conversionRate || 16000)) : '••••••'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Area type="monotone" dataKey="equity" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorEquity)" dot={false} />
-            </AreaChart>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Area type="monotone" dataKey="equity" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorEquity)" dot={false} />
+                </AreaChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
       </Card>
     </div>
   );
 }
-
-    

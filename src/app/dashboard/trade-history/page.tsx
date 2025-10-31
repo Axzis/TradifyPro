@@ -76,17 +76,15 @@ export default function TradeHistoryPage() {
         if (filterDateRange?.to && tradeDate > filterDateRange.to) return false;
         if (filterAssetType !== 'all' && trade.assetType !== filterAssetType) return false;
         
-        if (filterResult !== 'all' && trade.closeDate) {
-            const pnl = calculatePnl(trade);
-            if (filterResult === 'win' && pnl <= 0) return false;
-            if (filterResult === 'loss' && pnl >= 0) return false;
-            if (filterResult === 'be' && pnl !== 0) return false;
-        } else if (filterResult !== 'all' && !trade.closeDate) {
+        const pnl = calculatePnl(trade);
+        const result = !trade.closeDate ? "open" : pnl > 0 ? "win" : pnl < 0 ? "loss" : "be";
+
+        if (filterResult !== 'all' && result !== filterResult) {
             return false;
         }
         
         return true;
-    });
+    }).sort((a,b) => toDate((b.openDate as any)).getTime() - toDate((a.openDate as any)).getTime());
   }, [rawTrades, filterDateRange, filterAssetType, filterResult]);
 
   const handleSelectTrade = (trade: Trade) => {
@@ -145,6 +143,7 @@ export default function TradeHistoryPage() {
             <SelectItem value="win">Win</SelectItem>
             <SelectItem value="loss">Loss</SelectItem>
             <SelectItem value="be">Break-even</SelectItem>
+            <SelectItem value="open">Open</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -155,12 +154,7 @@ export default function TradeHistoryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Ticker</TableHead>
-                <TableHead>
-                  <Button variant="ghost" size="sm">
-                    Tanggal Buka
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
+                <TableHead>Tanggal Buka</TableHead>
                 <TableHead>Tipe</TableHead>
                 <TableHead>Posisi</TableHead>
                 <TableHead className="text-right">P/L (USD)</TableHead>
@@ -312,5 +306,3 @@ export default function TradeHistoryPage() {
     </div>
   );
 }
-
-    
