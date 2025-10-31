@@ -25,11 +25,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Separator } from "@/components/ui/separator";
 import { format, toDate } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import type { Timestamp } from "firebase/firestore";
@@ -62,7 +62,6 @@ export default function TradeHistoryPage() {
   const [isDeleteAlertOpen, setDeleteAlertOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  // Filters
   const [filterDateRange, setFilterDateRange] = useState<DateRange | undefined>(undefined);
   const [filterAssetType, setFilterAssetType] = useState<string>('all');
   const [filterResult, setFilterResult] = useState<string>('all');
@@ -70,17 +69,20 @@ export default function TradeHistoryPage() {
   const filteredTrades = useMemo(() => {
     if (!rawTrades) return [];
     return rawTrades.filter(trade => {
+        if (!trade.openDate) return false;
         const tradeDate = toDate((trade.openDate as Timestamp).seconds * 1000);
 
         if (filterDateRange?.from && tradeDate < filterDateRange.from) return false;
         if (filterDateRange?.to && tradeDate > filterDateRange.to) return false;
         if (filterAssetType !== 'all' && trade.assetType !== filterAssetType) return false;
         
-        if (filterResult !== 'all') {
+        if (filterResult !== 'all' && trade.closeDate) {
             const pnl = calculatePnl(trade);
             if (filterResult === 'win' && pnl <= 0) return false;
             if (filterResult === 'loss' && pnl >= 0) return false;
             if (filterResult === 'be' && pnl !== 0) return false;
+        } else if (filterResult !== 'all' && !trade.closeDate) {
+            return false;
         }
         
         return true;
@@ -116,8 +118,7 @@ export default function TradeHistoryPage() {
     }
   };
   
-  const openDeleteAlert = (e: React.MouseEvent) => {
-      e.stopPropagation();
+  const openDeleteAlert = () => {
       setDeleteAlertOpen(true);
   }
 
@@ -188,12 +189,12 @@ export default function TradeHistoryPage() {
               )}
               {!loading && filteredTrades?.map((trade) => {
                   const pnl = calculatePnl(trade);
-                  const result = pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "BE";
+                  const result = !trade.closeDate ? "Open" : pnl > 0 ? "Win" : pnl < 0 ? "Loss" : "BE";
 
                   return (
                     <TableRow key={trade.id} onClick={() => handleSelectTrade(trade)} className="cursor-pointer">
                       <TableCell className="font-medium">{trade.ticker}</TableCell>
-                      <TableCell>{format(trade.openDate.toDate(), "dd MMM yyyy")}</TableCell>
+                      <TableCell>{format(toDate(trade.openDate as any), "dd MMM yyyy")}</TableCell>
                       <TableCell>
                         <Badge variant="outline">{trade.assetType}</Badge>
                       </TableCell>
@@ -202,11 +203,11 @@ export default function TradeHistoryPage() {
                             {trade.position}
                         </Badge>
                       </TableCell>
-                      <TableCell className={`text-right font-medium ${pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {pnl.toFixed(2)}
+                      <TableCell className={`text-right font-medium ${!trade.closeDate ? 'text-muted-foreground' : pnl >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {trade.closeDate ? pnl.toFixed(2) : '-'}
                       </TableCell>
                       <TableCell className="text-center">
-                        <Badge variant={result === 'Win' ? 'default' : result === 'Loss' ? 'destructive' : 'secondary'} className={result === 'Win' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                        <Badge variant={result === 'Win' ? 'default' : result === 'Loss' ? 'destructive' : 'secondary'} className={result === 'Win' ? 'bg-green-500 hover:bg-green-600' : result === "Open" ? "bg-sky-500 hover:bg-sky-600" : ""}>
                           {result}
                         </Badge>
                       </TableCell>
@@ -223,9 +224,7 @@ export default function TradeHistoryPage() {
                               <DropdownMenuItem onClick={() => handleSelectTrade(trade)}>Lihat Detail</DropdownMenuItem>
                               <DropdownMenuItem onClick={() => router.push(`/dashboard/edit-trade/${trade.id}`)}>Edit Trade</DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem className="text-red-500 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-900/50" onSelect={(e) => { e.preventDefault(); setSelectedTrade(trade); setDeleteAlertOpen(true); }}>Hapus Trade</DropdownMenuItem>
-                              </AlertDialogTrigger>
+                              <DropdownMenuItem className="text-red-500 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-900/50" onSelect={(e) => { e.preventDefault(); setSelectedTrade(trade); openDeleteAlert(); }}>Hapus Trade</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                       </TableCell>
@@ -237,20 +236,37 @@ export default function TradeHistoryPage() {
         </CardContent>
       </Card>
       
-      {/* Detail Dialog */}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Anda yakin ingin menghapus?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Aksi ini tidak dapat dibatalkan. Ini akan menghapus data trade secara permanen dari server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Batal</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteTrade} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Ya, Hapus
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <Dialog open={isDetailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Detail Trade: {selectedTrade?.ticker}</DialogTitle>
             <DialogDescription>
-              {selectedTrade?.position} trade on {selectedTrade && format(selectedTrade.openDate.toDate(), "dd MMMM yyyy")}
+              {selectedTrade?.position} trade pada {selectedTrade && format(toDate(selectedTrade.openDate as any), "dd MMMM yyyy")}
             </DialogDescription>
           </DialogHeader>
           {selectedTrade && (
             <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto">
                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div><p className="text-muted-foreground">P/L</p><p className={`font-semibold ${calculatePnl(selectedTrade) >= 0 ? 'text-green-500' : 'text-red-500'}`}>{calculatePnl(selectedTrade).toFixed(2)} USD</p></div>
-                    <div><p className="text-muted-foreground">Hasil</p><p className="font-semibold">{calculatePnl(selectedTrade) > 0 ? "Win" : calculatePnl(selectedTrade) < 0 ? "Loss" : "BE"}</p></div>
+                    <div><p className="text-muted-foreground">P/L</p><p className={`font-semibold ${calculatePnl(selectedTrade) >= 0 ? 'text-green-500' : 'text-red-500'}`}>{selectedTrade.closeDate ? `${calculatePnl(selectedTrade).toFixed(2)} USD` : '-'}</p></div>
+                    <div><p className="text-muted-foreground">Hasil</p><p className="font-semibold">{!selectedTrade.closeDate ? 'Open' : calculatePnl(selectedTrade) > 0 ? "Win" : calculatePnl(selectedTrade) < 0 ? "Loss" : "BE"}</p></div>
                     <div><p className="text-muted-foreground">Posisi</p><p className="font-semibold">{selectedTrade.position}</p></div>
                     <div><p className="text-muted-foreground">Aset</p><p className="font-semibold">{selectedTrade.assetType}</p></div>
                </div>
@@ -277,11 +293,11 @@ export default function TradeHistoryPage() {
                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <p className="text-muted-foreground mb-2">Sebelum Masuk</p>
-                            {selectedTrade.imageUrlBefore ? <a href={selectedTrade.imageUrlBefore} target="_blank" rel="noopener noreferrer"><Image src={selectedTrade.imageUrlBefore} alt="Screenshot sebelum masuk" width={300} height={200} className="rounded-md border object-cover" /></a> : <div className="w-full h-48 rounded-md bg-muted flex items-center justify-center text-muted-foreground">Tidak ada gambar</div>}
+                            {selectedTrade.imageUrlBefore ? <a href={selectedTrade.imageUrlBefore} target="_blank" rel="noopener noreferrer"><Image src={selectedTrade.imageUrlBefore} alt="Screenshot sebelum masuk" width={300} height={200} className="rounded-md border object-cover aspect-video" /></a> : <div className="w-full h-48 rounded-md bg-muted flex items-center justify-center text-muted-foreground">Tidak ada gambar</div>}
                         </div>
                         <div>
                             <p className="text-muted-foreground mb-2">Sesudah Keluar</p>
-                             {selectedTrade.imageUrlAfter ? <a href={selectedTrade.imageUrlAfter} target="_blank" rel="noopener noreferrer"><Image src={selectedTrade.imageUrlAfter} alt="Screenshot sesudah keluar" width={300} height={200} className="rounded-md border object-cover" /></a> : <div className="w-full h-48 rounded-md bg-muted flex items-center justify-center text-muted-foreground">Tidak ada gambar</div>}
+                             {selectedTrade.imageUrlAfter ? <a href={selectedTrade.imageUrlAfter} target="_blank" rel="noopener noreferrer"><Image src={selectedTrade.imageUrlAfter} alt="Screenshot sesudah keluar" width={300} height={200} className="rounded-md border object-cover aspect-video" /></a> : <div className="w-full h-48 rounded-md bg-muted flex items-center justify-center text-muted-foreground">Tidak ada gambar</div>}
                         </div>
                    </div>
                </div>
@@ -289,36 +305,12 @@ export default function TradeHistoryPage() {
           )}
           <DialogFooter>
             <Button variant="secondary" onClick={() => setDetailOpen(false)}>Tutup</Button>
-            <Button onClick={() => { setDetailOpen(false); router.push(`/dashboard/edit-trade/${selectedTrade?.id}`)}}>Edit</Button>
+            <Button onClick={() => { if(selectedTrade) { setDetailOpen(false); router.push(`/dashboard/edit-trade/${selectedTrade?.id}`)}}}>Edit</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      
-      {/* Delete Confirmation */}
-       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setDeleteAlertOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Anda yakin ingin menghapus?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Aksi ini tidak dapat dibatalkan. Ini akan menghapus data trade secara permanen dari server.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteTrade} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Ya, Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
-}
-
-// Separator component for use in the dialog
-function Separator() {
-    return <div className="border-t border-border" />;
 }
 
     

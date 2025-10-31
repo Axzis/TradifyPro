@@ -34,9 +34,9 @@ const formSchema = z.object({
   entryPrice: z.coerce.number().positive("Harga masuk harus positif"),
   exitPrice: z.coerce.number().optional().nullable(),
   positionSize: z.coerce.number().positive("Ukuran posisi harus positif"),
-  stopLossPrice: z.coerce.number().optional(),
-  takeProfitPrice: z.coerce.number().optional(),
-  commission: z.coerce.number().optional(),
+  stopLossPrice: z.coerce.number().optional().nullable(),
+  takeProfitPrice: z.coerce.number().optional().nullable(),
+  commission: z.coerce.number().optional().nullable(),
   tags: z.array(z.string()).optional(),
   entryReason: z.string().optional(),
   closeDate: z.date().optional().nullable(),
@@ -64,6 +64,10 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           closeDate: tradeToEdit.closeDate ? (tradeToEdit.closeDate as any).toDate() : null,
           entryPrice: tradeToEdit.entryPrice || 0,
           positionSize: tradeToEdit.positionSize || 0,
+          stopLossPrice: tradeToEdit.stopLossPrice || null,
+          takeProfitPrice: tradeToEdit.takeProfitPrice || null,
+          commission: tradeToEdit.commission || null,
+          exitPrice: tradeToEdit.exitPrice || null,
         }
       : {
           ticker: "",
@@ -92,16 +96,11 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     setIsSubmitting(true);
     
     try {
-      const dataToSave = {
-        ...values,
-        userId: user.uid,
-      };
-
       if (tradeToEdit) {
-        // Update logic
         const tradeRef = doc(db, "users", user.uid, "trades", tradeToEdit.id);
         await updateDoc(tradeRef, {
-          ...dataToSave,
+          ...values,
+          userId: user.uid,
           updatedAt: serverTimestamp(),
         });
         toast({
@@ -109,9 +108,9 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           description: "Perubahan pada trade Anda telah disimpan.",
         });
       } else {
-        // Create logic
         await addDoc(collection(db, "users", user.uid, "trades"), {
-            ...dataToSave,
+            ...values,
+            userId: user.uid,
             createdAt: serverTimestamp(),
         });
         toast({
@@ -169,16 +168,16 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
             <FormItem><FormLabel>Ukuran Posisi (Unit)</FormLabel><FormControl><Input type="number" step="any" placeholder="10.5" {...field} /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="commission" render={({ field }) => (
-            <FormItem><FormLabel>Komisi (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="1.25" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Komisi (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="1.25" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <FormField control={form.control} name="stopLossPrice" render={({ field }) => (
-            <FormItem><FormLabel>Harga Stop Loss (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Harga Stop Loss (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="takeProfitPrice" render={({ field }) => (
-            <FormItem><FormLabel>Harga Take Profit (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Harga Take Profit (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
           )} />
         </div>
 

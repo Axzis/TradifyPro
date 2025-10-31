@@ -92,7 +92,6 @@ export default function CalculatorPage() {
   const { setValue, watch, formState: { isDirty } } = form;
   const watchedValues = watch();
 
-  // Pre-fill equity from database, but only if user hasn't edited it.
   useEffect(() => {
     if (currentEquity > 0 && !isDirty) {
       setValue('totalEquity', parseFloat(currentEquity.toFixed(2)));
@@ -102,7 +101,7 @@ export default function CalculatorPage() {
 
   const results = useMemo(() => {
     const { totalEquity, riskPercentage, entryPrice, stopLossPrice } = watchedValues;
-    const contractSize = 100000; // Standard lot size for Forex
+    const contractSize = 100000;
 
     if (!totalEquity || !riskPercentage || !entryPrice || !stopLossPrice) {
       return { riskAmountUSD: 0, positionSize: 0, lotSize: 0 };
@@ -278,3 +277,5 @@ export default function CalculatorPage() {
     </div>
   );
 }
+
+    

@@ -12,18 +12,27 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { useAuth } from "./use-auth";
 
 export function useCollection<T>(path: string, ...queryConstraints: QueryConstraint[]) {
+  const { user } = useAuth();
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      setData([]);
+      return;
+    };
+
     let unsubscribe: Unsubscribe | null = null;
     
     // Do not run query if path is invalid (e.g. during initial render with no user)
     if(!path.includes('undefined')) {
-      const q: Query<DocumentData> = query(collection(db, path), ...queryConstraints);
+      const collectionPath = path.startsWith('users/') ? path : `users/${user.uid}/${path}`;
+      const q: Query<DocumentData> = query(collection(db, collectionPath), ...queryConstraints);
       
       unsubscribe = onSnapshot(
         q,
@@ -51,25 +60,32 @@ export function useCollection<T>(path: string, ...queryConstraints: QueryConstra
         unsubscribe();
       }
     };
-  }, [path, ...queryConstraints.map(c => c.toString())]); // Basic dependency check
+  }, [user, path, ...queryConstraints.map(c => c.toString())]); // Basic dependency check
 
   return { data, loading, error };
 }
 
 export function useDoc<T>(path: string) {
+  const { user } = useAuth();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    // Do not run query if path is invalid (e.g. during initial render with no user/id)
+    if (!user) {
+      setLoading(false);
+      setData(null);
+      return;
+    }
+    
     if (path.includes('undefined')) {
       setLoading(false);
       setData(null);
       return;
     }
 
-    const docRef = doc(db, path);
+    const docPath = path.startsWith('users/') ? path : `users/${user.uid}/${path}`;
+    const docRef = doc(db, docPath);
     const unsubscribe = onSnapshot(
       docRef,
       (docSnapshot) => {
@@ -77,6 +93,7 @@ export function useDoc<T>(path: string) {
           setData({ id: docSnapshot.id, ...docSnapshot.data() } as T);
         } else {
           setData(null);
+          console.warn(`Document not found at path: ${docPath}`);
         }
         setLoading(false);
       },
@@ -88,7 +105,9 @@ export function useDoc<T>(path: string) {
     );
 
     return () => unsubscribe();
-  }, [path]);
+  }, [user, path]);
 
   return { data, loading, error };
 }
+
+    
