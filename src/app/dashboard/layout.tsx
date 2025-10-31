@@ -14,7 +14,6 @@ import {
   Plus,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import { useAuth } from "@/hooks/use-auth";
 import { AuthStateGate } from "@/components/auth-state-gate";
 import { Logo } from "@/components/logo";
@@ -43,6 +42,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import NewTradeForm from "@/components/forms/new-trade-form";
 import { useState } from "react";
+import { auth } from "@/lib/firebase";
 
 const navItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Dashboard" },
