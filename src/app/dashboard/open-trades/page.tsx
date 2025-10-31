@@ -14,7 +14,7 @@ import { db } from '@/lib/firebase';
 import { useCollection } from '@/hooks/use-firestore';
 import type { Trade } from '@/types/trade';
 import { useToast } from '@/hooks/use-toast';
-import { format, setHours, setMinutes } from 'date-fns';
+import { format, setHours, setMinutes, toDate } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarIcon, Loader2 } from 'lucide-react';
 
@@ -80,7 +80,8 @@ const formatCurrencyUSD = (value: number | undefined | null) => {
 
 const formatDate = (date: any): string => {
   if (!date) return 'N/A';
-  const d = date instanceof Timestamp ? date.toDate() : new Date(date);
+  // Handle both JS Date and Firestore Timestamp
+  const d = date instanceof Date ? date : typeof date.toDate === 'function' ? date.toDate() : toDate(date);
   if (isNaN(d.getTime())) return 'Invalid Date';
   return d.toLocaleString('id-ID', {
     year: 'numeric',
