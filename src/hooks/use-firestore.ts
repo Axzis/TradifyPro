@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   collection,
   query,
@@ -10,60 +10,98 @@ import {
   type Query,
   type QueryConstraint,
   type Unsubscribe,
+  where,
+  orderBy,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "./use-auth";
 
-export function useCollection<T>(path: string, ...queryConstraints: QueryConstraint[]) {
+// A utility function to create a stable query object
+const useStableQuery = (path: string, ...queryConstraints: any[]) => {
+  const constraintsString = queryConstraints.map(c => 
+    c.type + (c.field || '') + (c.op || '') + (c.value || '')
+  ).join(',');
+
+  return useMemo(() => {
+    if (!path || path.includes('undefined')) return null;
+
+    const queryArgs: any[] = [collection(db, path)];
+    queryConstraints.forEach(constraint => {
+      if (constraint.type === 'where') {
+        queryArgs.push(where(constraint.field, constraint.op, constraint.value));
+      } else if (constraint.type === 'orderBy') {
+        queryArgs.push(orderBy(constraint.field, constraint.direction));
+      }
+    });
+
+    return query.apply(null, queryArgs as [Query<DocumentData>, ...QueryConstraint[]]);
+
+  }, [path, constraintsString]);
+};
+
+export function useCollection<T>(path: string, ...queryConstraints: any[]) {
   const { user } = useAuth();
   const [data, setData] = useState<T[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  const stableQueryConstraints = useMemo(() => {
+    const constraints = [];
+    for (let i = 0; i < queryConstraints.length; i += 3) {
+      const field = queryConstraints[i];
+      const op = queryConstraints[i + 1];
+      const value = queryConstraints[i + 2];
+      if (field && op) {
+         constraints.push({ type: 'where', field, op, value });
+      }
+    }
+    return constraints;
+  }, [queryConstraints]);
+
+
+  const q = useStableQuery(
+    user ? path : '',
+    ...stableQueryConstraints
+  );
 
   useEffect(() => {
     if (!user) {
       setLoading(false);
       setData([]);
       return;
-    };
-
-    let unsubscribe: Unsubscribe | null = null;
-    
-    // Do not run query if path is invalid (e.g. during initial render with no user)
-    if(!path.includes('undefined')) {
-      const collectionPath = path.startsWith('users/') ? path : `users/${user.uid}/${path}`;
-      const q: Query<DocumentData> = query(collection(db, collectionPath), ...queryConstraints);
-      
-      unsubscribe = onSnapshot(
-        q,
-        (querySnapshot) => {
-          const docs = querySnapshot.docs.map(
-            (doc) => ({ id: doc.id, ...doc.data() } as T)
-          );
-          setData(docs);
-          setLoading(false);
-        },
-        (err) => {
-          console.error(`Error fetching collection ${path}:`, err);
-          setError(err);
-          setLoading(false);
-        }
-      );
-    } else {
-      setLoading(false);
-      setData([]);
     }
 
+    if (!q) {
+      setLoading(false);
+      setData([]);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe: Unsubscribe = onSnapshot(
+      q,
+      (querySnapshot) => {
+        const docs = querySnapshot.docs.map(
+          (doc) => ({ id: doc.id, ...doc.data() } as T)
+        );
+        setData(docs);
+        setLoading(false);
+      },
+      (err) => {
+        console.error(`Error fetching collection ${path}:`, err);
+        setError(err);
+        setLoading(false);
+      }
+    );
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      unsubscribe();
     };
-  }, [user, path, ...queryConstraints.map(c => c.toString())]); // Basic dependency check
+  }, [user, q, path]); 
 
   return { data, loading, error };
 }
+
 
 export function useDoc<T>(path: string) {
   const { user } = useAuth();
@@ -72,20 +110,13 @@ export function useDoc<T>(path: string) {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      setData(null);
-      return;
-    }
-    
-    if (path.includes('undefined')) {
+    if (!user || !path || path.includes('undefined')) {
       setLoading(false);
       setData(null);
       return;
     }
 
-    const docPath = path.startsWith('users/') ? path : `users/${user.uid}/${path}`;
-    const docRef = doc(db, docPath);
+    const docRef = doc(db, path);
     const unsubscribe = onSnapshot(
       docRef,
       (docSnapshot) => {
@@ -93,7 +124,7 @@ export function useDoc<T>(path: string) {
           setData({ id: docSnapshot.id, ...docSnapshot.data() } as T);
         } else {
           setData(null);
-          console.warn(`Document not found at path: ${docPath}`);
+          console.warn(`Document not found at path: ${path}`);
         }
         setLoading(false);
       },
@@ -109,5 +140,3 @@ export function useDoc<T>(path: string) {
 
   return { data, loading, error };
 }
-
-    

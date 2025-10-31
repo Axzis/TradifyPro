@@ -6,8 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import {
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
@@ -105,7 +103,7 @@ export default function DashboardPage() {
     });
 
     // 2. Calculations from filtered trades
-    let totalNetPnL = 0, totalGains = 0, totalLosses = 0, totalWins = 0, totalLossesCount = 0, totalRMultiple = 0, totalInitialRisk = 0;
+    let totalNetPnL = 0, totalGains = 0, totalLosses = 0, totalWins = 0, totalLossesCount = 0, totalRMultiple = 0;
 
     for (const trade of filteredTrades) {
         const pnl = calculatePnl(trade);
@@ -122,7 +120,6 @@ export default function DashboardPage() {
         if (trade.stopLossPrice && trade.entryPrice && trade.positionSize) {
             const initialRiskUSD = Math.abs(trade.entryPrice - trade.stopLossPrice) * trade.positionSize;
             if (initialRiskUSD > 0) {
-                totalInitialRisk += initialRiskUSD;
                 totalRMultiple += (pnl / initialRiskUSD);
             }
         }

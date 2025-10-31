@@ -6,13 +6,15 @@ import type { Trade } from '@/types/trade';
 import NewTradeForm from '@/components/forms/new-trade-form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
+import { useAuth } from '@/hooks/use-auth';
 
 export default function EditTradePage() {
   const router = useRouter();
   const params = useParams();
   const { tradeId } = params;
+  const { user } = useAuth();
 
-  const { data: trade, loading } = useDoc<Trade>(`trades/${tradeId}`);
+  const { data: trade, loading } = useDoc<Trade>(user ? `users/${user.uid}/trades/${tradeId}` : '');
 
   if (loading) {
     return (
@@ -40,5 +42,3 @@ export default function EditTradePage() {
     </div>
   );
 }
-
-    

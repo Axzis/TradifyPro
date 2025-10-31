@@ -5,10 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  collection,
-  query,
-  where,
-  orderBy,
   doc,
   updateDoc,
   Timestamp,
@@ -72,8 +68,8 @@ const closeTradeSchema = z.object({
 
 type CloseTradeFormData = z.infer<typeof closeTradeSchema>;
 
-const formatCurrencyUSD = (value: number | undefined) => {
-  if (value === undefined) return 'N/A';
+const formatCurrencyUSD = (value: number | undefined | null) => {
+  if (value === undefined || value === null) return 'N/A';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -104,8 +100,7 @@ export default function OpenTradesPage() {
 
   const { data: rawOpenTrades, loading } = useCollection<Trade>(
     user ? `users/${user.uid}/trades` : '',
-    where('closeDate', '==', null)
-    // Removed orderBy to prevent composite index requirement
+    'closeDate', '==', null
   );
 
   // Sort trades on the client-side
