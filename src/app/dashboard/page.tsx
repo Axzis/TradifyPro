@@ -12,14 +12,12 @@ import {
 import { AreaChart, Area, CartesianGrid, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { DatePickerWithRange } from "@/components/ui/date-range-picker";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
-
-const kpiData = [
-  { title: "Total P/L", value: "$7,230.50", change: "+15.2%", isPositive: true },
-  { title: "Win Rate", value: "62.5%", change: "-2.1%", isPositive: false },
-  { title: "Avg. R-Multiple", value: "1.8R", change: "+0.2R", isPositive: true },
-  { title: "Total Trades", value: "48", change: "+5", isPositive: true },
-];
+import { useState, useMemo } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { useCollection } from "@/hooks/use-firestore";
+import type { Trade } from "@/types/trade";
+import type { EquityTransaction } from "@/types/equity";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const chartData = [
   { date: "Jan", equity: 10000 },
@@ -31,8 +29,62 @@ const chartData = [
   { date: "Jul", equity: 13100 },
 ];
 
+
+const calculatePnl = (trade: Trade) => {
+    if (trade.exitPrice === null || trade.exitPrice === undefined) return 0;
+    const pnlPerUnit = trade.exitPrice - trade.entryPrice;
+    const totalPnl = pnlPerUnit * trade.positionSize;
+    return trade.position === "Short" ? totalPnl * -1 : totalPnl;
+};
+
+
 export default function DashboardPage() {
   const [isEquityVisible, setIsEquityVisible] = useState(true);
+  const { user } = useAuth();
+
+  const { data: trades, loading: tradesLoading } = useCollection<Trade>(
+    user ? `users/${user.uid}/trades` : ''
+  );
+  const { data: equityTransactions, loading: equityLoading } = useCollection<EquityTransaction>(
+    user ? `users/${user.uid}/equityTransactions` : ''
+  );
+
+  const stats = useMemo(() => {
+    const closedTrades = trades?.filter(t => t.exitPrice !== null && t.exitPrice !== undefined) || [];
+
+    const totalPnl = closedTrades.reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    const totalProfit = closedTrades.filter(t => calculatePnl(t) > 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    const totalLoss = closedTrades.filter(t => calculatePnl(t) < 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    
+    const totalTrades = closedTrades.length;
+    const winningTrades = closedTrades.filter(t => calculatePnl(t) > 0).length;
+    const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
+    
+    const totalDeposits = equityTransactions?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0;
+    const totalWithdraws = equityTransactions?.filter(tx => tx.type === 'withdraw').reduce((acc, tx) => acc + tx.amount, 0) || 0;
+    const equity = totalDeposits - totalWithdraws + totalPnl;
+    
+    return {
+      totalPnl,
+      totalProfit,
+      totalLoss,
+      winRate,
+      totalTrades,
+      equity
+    };
+  }, [trades, equityTransactions]);
+
+  const kpiData = [
+    { title: "Equity", value: stats.equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) },
+    { title: "Total P/L", value: stats.totalPnl.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: stats.totalPnl >= 0 },
+    { title: "Total Profit", value: stats.totalProfit.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: true },
+    { title: "Total Loss", value: stats.totalLoss.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: false },
+    { title: "Win Rate", value: `${stats.winRate.toFixed(1)}%` },
+    { title: "Total Trades", value: stats.totalTrades.toString() },
+  ];
+  
+  const loading = tradesLoading || equityLoading;
+
 
   return (
     <div className="space-y-8">
@@ -71,8 +123,18 @@ export default function DashboardPage() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {kpiData.map((kpi) => (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {loading ? Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <Skeleton className="h-4 w-20" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-7 w-32" />
+                    <Skeleton className="h-3 w-40 mt-2" />
+                </CardContent>
+            </Card>
+        )) : kpiData.map((kpi) => (
           <Card key={kpi.title}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">{kpi.title}</CardTitle>
@@ -81,9 +143,11 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold">
                 {isEquityVisible ? kpi.value : '••••••'}
               </div>
-              <p className={`text-xs ${kpi.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                {kpi.change} dari periode sebelumnya
-              </p>
+              {'isPositive' in kpi && (
+                 <p className={`text-xs ${kpi.isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                    {kpi.value}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
