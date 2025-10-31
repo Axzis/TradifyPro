@@ -83,7 +83,7 @@ export default function CalculatorPage() {
   const form = useForm<CalculatorFormData>({
     resolver: zodResolver(calculatorSchema),
     defaultValues: {
-      totalEquity: 0,
+      totalEquity: '' as any,
       riskPercentage: 1,
       entryPrice: '' as any,
       stopLossPrice: '' as any,
@@ -91,14 +91,32 @@ export default function CalculatorPage() {
     },
   });
 
-  const { setValue, watch } = form;
+  const { setValue, watch, formState: { isDirty } } = form;
   const watchedValues = watch();
 
+  // Load contract size from local storage on initial render
   useEffect(() => {
-    if (currentEquity > 0) {
+    const savedContractSize = localStorage.getItem('calculatorContractSize');
+    if (savedContractSize) {
+        setValue('contractSize', Number(savedContractSize));
+    }
+  }, [setValue]);
+
+
+  // Pre-fill equity from database, but only if user hasn't edited it.
+  useEffect(() => {
+    if (currentEquity > 0 && !isDirty) {
       setValue('totalEquity', parseFloat(currentEquity.toFixed(2)));
     }
-  }, [currentEquity, setValue]);
+  }, [currentEquity, setValue, isDirty]);
+
+  // Save contract size to local storage whenever it changes
+  useEffect(() => {
+      const { contractSize } = watchedValues;
+      if (contractSize && contractSize > 0) {
+          localStorage.setItem('calculatorContractSize', String(contractSize));
+      }
+  }, [watchedValues.contractSize]);
 
   const results = useMemo(() => {
     const { totalEquity, riskPercentage, entryPrice, stopLossPrice, contractSize } = watchedValues;
@@ -177,7 +195,7 @@ export default function CalculatorPage() {
                       <FormItem>
                         <FormLabel>Total Ekuitas (USD)</FormLabel>
                         <FormControl>
-                          {isLoading ? (
+                          {isLoading && !isDirty ? (
                              <Skeleton className="h-10 w-full" />
                           ) : (
                             <Input type="number" step="any" {...field} />
