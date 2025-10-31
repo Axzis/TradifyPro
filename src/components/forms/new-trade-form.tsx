@@ -1,0 +1,197 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useAuth } from "@/hooks/use-auth";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from "firebase/firestore";
+import { ASSET_TYPES, POSITIONS } from "@/lib/constants";
+import type { Trade } from "@/types/trade";
+
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Textarea } from "@/components/ui/textarea";
+import { TagInput } from "@/components/ui/tag-input";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { CalendarIcon, Loader2, UploadCloud } from "lucide-react";
+import { format } from "date-fns";
+
+import { IKContext, IKUpload } from 'imagekit-io-react';
+
+const formSchema = z.object({
+  ticker: z.string().min(1, "Ticker wajib diisi").toUpperCase(),
+  assetType: z.enum(ASSET_TYPES),
+  position: z.enum(POSITIONS),
+  openDate: z.date({ required_error: "Tanggal buka wajib diisi" }),
+  entryPrice: z.coerce.number().positive("Harga masuk harus positif"),
+  positionSize: z.coerce.number().positive("Ukuran posisi harus positif"),
+  stopLossPrice: z.coerce.number().optional(),
+  takeProfitPrice: z.coerce.number().optional(),
+  commission: z.coerce.number().optional(),
+  tags: z.array(z.string()).optional(),
+  entryReason: z.string().optional(),
+  imageUrlBefore: z.string().optional(),
+  imageUrlAfter: z.string().optional(),
+});
+
+type NewTradeFormProps = {
+  tradeToEdit?: Trade;
+  onFormSubmit?: () => void;
+};
+
+export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeFormProps) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: tradeToEdit
+      ? {
+          ...tradeToEdit,
+          openDate: tradeToEdit.openDate instanceof Date ? tradeToEdit.openDate : (tradeToEdit.openDate as any).toDate(),
+          entryPrice: tradeToEdit.entryPrice || 0,
+          positionSize: tradeToEdit.positionSize || 0,
+        }
+      : {
+          ticker: "",
+          assetType: "Saham",
+          position: "Long",
+          tags: [],
+          entryReason: "",
+        },
+  });
+
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!user) {
+      toast({ variant: "destructive", title: "Error", description: "Anda harus login." });
+      return;
+    }
+    setIsSubmitting(true);
+    
+    // Logic removed as per instruction. Will be added in the next step.
+    console.log("Form submitted with values:", values);
+    toast({ title: "Form Submitted (Dev)", description: "Logic is currently disabled." });
+
+    // Simulate async operation
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    setIsSubmitting(false);
+    onFormSubmit?.();
+  };
+
+  const onUploadSuccess = (fieldName: "imageUrlBefore" | "imageUrlAfter") => (res: any) => {
+    form.setValue(fieldName, res.url);
+    toast({title: "Upload Sukses", description: `Gambar ${fieldName === 'imageUrlBefore' ? 'Sebelum' : 'Sesudah'} berhasil diupload.`})
+  };
+  
+  const onUploadError = (err: any) => {
+    console.error("Upload error:", err);
+    toast({variant: "destructive", title: "Upload Gagal", description: "Gagal mengupload gambar."})
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto p-2 -mr-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <FormField control={form.control} name="ticker" render={({ field }) => (
+            <FormItem><FormLabel>Ticker</FormLabel><FormControl><Input placeholder="misal: BTC" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="assetType" render={({ field }) => (
+            <FormItem><FormLabel>Tipe Aset</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih tipe aset" /></SelectTrigger></FormControl><SelectContent>{ASSET_TYPES.map(type => <SelectItem key={type} value={type}>{type}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="position" render={({ field }) => (
+            <FormItem><FormLabel>Posisi</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Pilih posisi" /></SelectTrigger></FormControl><SelectContent>{POSITIONS.map(pos => <SelectItem key={pos} value={pos}>{pos}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+          )} />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <FormField control={form.control} name="openDate" render={({ field }) => (
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Buka</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="entryPrice" render={({ field }) => (
+            <FormItem><FormLabel>Harga Masuk (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="100.50" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+           <FormField control={form.control} name="positionSize" render={({ field }) => (
+            <FormItem><FormLabel>Ukuran Posisi (Unit)</FormLabel><FormControl><Input type="number" step="any" placeholder="10.5" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="commission" render={({ field }) => (
+            <FormItem><FormLabel>Komisi (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="1.25" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <FormField control={form.control} name="stopLossPrice" render={({ field }) => (
+            <FormItem><FormLabel>Harga Stop Loss (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+          <FormField control={form.control} name="takeProfitPrice" render={({ field }) => (
+            <FormItem><FormLabel>Harga Take Profit (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} /></FormControl><FormMessage /></FormItem>
+          )} />
+        </div>
+
+        <div className="space-y-4">
+            <FormField control={form.control} name="tags" render={({ field }) => (
+                <FormItem><FormLabel>Tags (Strategi, Emosi, dll)</FormLabel><FormControl><TagInput {...field} placeholder="misal: Breakout, FOMO, dll..."/></FormControl><FormMessage /></FormItem>
+            )} />
+            <FormField control={form.control} name="entryReason" render={({ field }) => (
+                <FormItem><FormLabel>Alasan Masuk</FormLabel><FormControl><Textarea placeholder="Alasan teknikal dan fundamental..." {...field} /></FormControl><FormMessage /></FormItem>
+            )} />
+        </div>
+
+        <IKContext
+          publicKey={process.env.NEXT_PUBLIC_IMAGEKIT_PUBLIC_KEY}
+          urlEndpoint={process.env.NEXT_PUBLIC_IMAGEKIT_URL_ENDPOINT}
+          authenticator={async () => {
+            const response = await fetch('/api/imagekit-auth');
+            return await response.json();
+          }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <FormLabel>Screenshot Sebelum</FormLabel>
+                <IKUpload 
+                    fileName={`before-${user?.uid}-${Date.now()}.jpg`}
+                    onSuccess={onUploadSuccess('imageUrlBefore')} 
+                    onError={onUploadError}
+                    className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32"
+                >
+                  <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p>Klik atau tarik untuk upload</p>
+                </IKUpload>
+                {form.watch('imageUrlBefore') && <Link href={form.watch('imageUrlBefore')!} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Lihat Gambar</Link>}
+              </div>
+
+              <div className="space-y-2">
+                <FormLabel>Screenshot Sesudah</FormLabel>
+                <IKUpload 
+                    fileName={`after-${user?.uid}-${Date.now()}.jpg`}
+                    onSuccess={onUploadSuccess('imageUrlAfter')} 
+                    onError={onUploadError}
+                    className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32"
+                >
+                  <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
+                  <p>Klik atau tarik untuk upload</p>
+                </IKUpload>
+                {form.watch('imageUrlAfter') && <Link href={form.watch('imageUrlAfter')!} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Lihat Gambar</Link>}
+              </div>
+          </div>
+        </IKContext>
+
+        <div className="flex justify-end pt-4">
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {tradeToEdit ? "Simpan Perubahan" : "Simpan Trade"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}

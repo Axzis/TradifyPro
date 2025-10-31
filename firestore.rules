@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    match /users/{userId} {
+      allow create: if isOwner(userId);
+      allow get, update, delete: if isOwner(userId);
+      allow list: if false;
+    }
+
+    match /users/{userId}/trades/{tradeId} {
+      allow create, get, update, delete: if isOwner(userId) && (request.resource.data.userId == userId || resource.data.userId == userId);
+      allow list: if isOwner(userId);
+    }
+
+    match /users/{userId}/equityTransactions/{txId} {
+      allow create, get, update, delete: if isOwner(userId) && (request.resource.data.userId == userId || resource.data.userId == userId);
+      allow list: if isOwner(userId);
+    }
+  }
+}
