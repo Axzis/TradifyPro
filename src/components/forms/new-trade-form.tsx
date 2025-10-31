@@ -157,29 +157,31 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <FormLabel>Screenshot Sebelum</FormLabel>
-                <IKUpload 
-                    fileName={`before-${user?.uid}-${Date.now()}.jpg`}
-                    onSuccess={onUploadSuccess('imageUrlBefore')} 
-                    onError={onUploadError}
-                    className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32"
-                >
-                  <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p>Klik atau tarik untuk upload</p>
-                </IKUpload>
+                <div className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32 relative">
+                    <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
+                    <p>Klik atau tarik untuk upload</p>
+                    <IKUpload 
+                        fileName={`before-${user?.uid}-${Date.now()}.jpg`}
+                        onSuccess={onUploadSuccess('imageUrlBefore')} 
+                        onError={onUploadError}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                </div>
                 {form.watch('imageUrlBefore') && <Link href={form.watch('imageUrlBefore')!} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Lihat Gambar</Link>}
               </div>
 
               <div className="space-y-2">
                 <FormLabel>Screenshot Sesudah</FormLabel>
-                <IKUpload 
-                    fileName={`after-${user?.uid}-${Date.now()}.jpg`}
-                    onSuccess={onUploadSuccess('imageUrlAfter')} 
-                    onError={onUploadError}
-                    className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32"
-                >
+                <div className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32 relative">
                   <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
                   <p>Klik atau tarik untuk upload</p>
-                </IKUpload>
+                  <IKUpload 
+                      fileName={`after-${user?.uid}-${Date.now()}.jpg`}
+                      onSuccess={onUploadSuccess('imageUrlAfter')} 
+                      onError={onUploadError}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
                 {form.watch('imageUrlAfter') && <Link href={form.watch('imageUrlAfter')!} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">Lihat Gambar</Link>}
               </div>
           </div>
