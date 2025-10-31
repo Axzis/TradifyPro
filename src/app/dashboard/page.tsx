@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useState, useMemo } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { useCollection } from "@/hooks/use-firestore";
+import { useCurrency } from "@/hooks/use-currency";
 import type { Trade } from "@/types/trade";
 import type { EquityTransaction } from "@/types/equity";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -41,6 +42,7 @@ const calculatePnl = (trade: Trade) => {
 export default function DashboardPage() {
   const [isEquityVisible, setIsEquityVisible] = useState(true);
   const { user } = useAuth();
+  const { rate: conversionRate, loading: rateLoading } = useCurrency();
 
   const { data: trades, loading: tradesLoading } = useCollection<Trade>(
     user ? `users/${user.uid}/trades` : ''
@@ -49,19 +51,44 @@ export default function DashboardPage() {
     user ? `users/${user.uid}/equityTransactions` : ''
   );
 
+  const formatToRupiah = (value: number) => {
+    return new Intl.NumberFormat('id-ID', {
+        style: 'currency',
+        currency: 'IDR',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(value);
+  }
+  
+  const formatYAxis = (value: number) => {
+      if (!isEquityVisible) return '••••';
+      if (value >= 1_000_000_000) {
+          return `Rp${(value / 1_000_000_000).toFixed(1)}M`;
+      }
+      if (value >= 1_000_000) {
+          return `Rp${(value / 1_000_000).toFixed(0)}jt`;
+      }
+      if (value >= 1_000) {
+          return `Rp${(value / 1_000).toFixed(0)}rb`;
+      }
+      return `Rp${value}`;
+  }
+
+
   const stats = useMemo(() => {
+    const rate = conversionRate || 16000; // fallback rate
     const closedTrades = trades?.filter(t => t.exitPrice !== null && t.exitPrice !== undefined) || [];
 
-    const totalPnl = closedTrades.reduce((acc, trade) => acc + calculatePnl(trade), 0);
-    const totalProfit = closedTrades.filter(t => calculatePnl(t) > 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
-    const totalLoss = closedTrades.filter(t => calculatePnl(t) < 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    const totalPnl = closedTrades.reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
+    const totalProfit = closedTrades.filter(t => calculatePnl(t) > 0).reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
+    const totalLoss = closedTrades.filter(t => calculatePnl(t) < 0).reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
     
     const totalTrades = closedTrades.length;
     const winningTrades = closedTrades.filter(t => calculatePnl(t) > 0).length;
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
     
-    const totalDeposits = equityTransactions?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0;
-    const totalWithdraws = equityTransactions?.filter(tx => tx.type === 'withdraw').reduce((acc, tx) => acc + tx.amount, 0) || 0;
+    const totalDeposits = (equityTransactions?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0) * rate;
+    const totalWithdraws = (equityTransactions?.filter(tx => tx.type === 'withdraw').reduce((acc, tx) => acc + tx.amount, 0) || 0) * rate;
     const equity = totalDeposits - totalWithdraws + totalPnl;
     
     return {
@@ -72,18 +99,18 @@ export default function DashboardPage() {
       totalTrades,
       equity
     };
-  }, [trades, equityTransactions]);
+  }, [trades, equityTransactions, conversionRate]);
 
   const kpiData = [
-    { title: "Equity", value: stats.equity.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) },
-    { title: "Total P/L", value: stats.totalPnl.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: stats.totalPnl >= 0 },
-    { title: "Total Profit", value: stats.totalProfit.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: true },
-    { title: "Total Loss", value: stats.totalLoss.toLocaleString('en-US', { style: 'currency', currency: 'USD' }), isPositive: false },
+    { title: "Equity", value: formatToRupiah(stats.equity) },
+    { title: "Total P/L", value: formatToRupiah(stats.totalPnl), isPositive: stats.totalPnl >= 0 },
+    { title: "Total Profit", value: formatToRupiah(stats.totalProfit), isPositive: true },
+    { title: "Total Loss", value: formatToRupiah(stats.totalLoss), isPositive: false },
     { title: "Win Rate", value: `${stats.winRate.toFixed(1)}%` },
     { title: "Total Trades", value: stats.totalTrades.toString() },
   ];
   
-  const loading = tradesLoading || equityLoading;
+  const loading = tradesLoading || equityLoading || rateLoading;
 
 
   return (
@@ -159,7 +186,7 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <ChartContainer config={{}} className="h-[350px] w-full">
-            <AreaChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
               <defs>
                 <linearGradient id="colorEquity" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
@@ -171,18 +198,20 @@ export default function DashboardPage() {
               <YAxis 
                 tickLine={false} 
                 axisLine={false} 
-                tickFormatter={(value) => isEquityVisible ? `$${value / 1000}k` : '••••'}
+                tickFormatter={(value) => formatYAxis(value * (conversionRate || 0))}
               />
               <Tooltip
                 content={({ active, payload }) => {
                   if (active && payload && payload.length) {
+                    const valueInUSD = payload[0].value as number;
+                    const valueInIDR = valueInUSD * (conversionRate || 0);
                     return (
                       <div className="rounded-lg border bg-background p-2 shadow-sm">
                         <div className="grid grid-cols-1 gap-2">
                           <div className="flex flex-col">
                             <span className="text-xs uppercase text-muted-foreground">Equity</span>
                             <span className="font-bold text-foreground">
-                              {isEquityVisible ? payload[0].value?.toLocaleString('en-US', { style: 'currency', currency: 'USD' }) : '••••••'}
+                              {isEquityVisible ? formatToRupiah(valueInIDR) : '••••••'}
                             </span>
                           </div>
                         </div>
