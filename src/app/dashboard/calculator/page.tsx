@@ -82,8 +82,8 @@ export default function CalculatorPage() {
     defaultValues: {
       totalEquity: 0,
       riskPercentage: 1,
-      entryPrice: undefined,
-      stopLossPrice: undefined,
+      entryPrice: '' as any,
+      stopLossPrice: '' as any,
     },
   });
 
