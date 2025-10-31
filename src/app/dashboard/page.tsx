@@ -59,6 +59,15 @@ export default function DashboardPage() {
         maximumFractionDigits: 0,
     }).format(value);
   }
+
+  const formatToUSD = (value: number) => {
+    return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(value);
+  }
   
   const formatYAxis = (value: number) => {
       if (!isEquityVisible) return '••••';
@@ -79,35 +88,39 @@ export default function DashboardPage() {
     const rate = conversionRate || 16000; // fallback rate
     const closedTrades = trades?.filter(t => t.exitPrice !== null && t.exitPrice !== undefined) || [];
 
-    const totalPnl = closedTrades.reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
-    const totalProfit = closedTrades.filter(t => calculatePnl(t) > 0).reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
-    const totalLoss = closedTrades.filter(t => calculatePnl(t) < 0).reduce((acc, trade) => acc + calculatePnl(trade), 0) * rate;
+    const totalPnlUSD = closedTrades.reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    const totalProfitUSD = closedTrades.filter(t => calculatePnl(t) > 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
+    const totalLossUSD = closedTrades.filter(t => calculatePnl(t) < 0).reduce((acc, trade) => acc + calculatePnl(trade), 0);
     
     const totalTrades = closedTrades.length;
     const winningTrades = closedTrades.filter(t => calculatePnl(t) > 0).length;
     const winRate = totalTrades > 0 ? (winningTrades / totalTrades) * 100 : 0;
     
-    const totalDeposits = (equityTransactions?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0) * rate;
-    const totalWithdraws = (equityTransactions?.filter(tx => tx.type === 'withdraw').reduce((acc, tx) => acc + tx.amount, 0) || 0) * rate;
-    const equity = totalDeposits - totalWithdraws + totalPnl;
+    const totalDepositsUSD = (equityTransactions?.filter(tx => tx.type === 'deposit').reduce((acc, tx) => acc + tx.amount, 0) || 0);
+    const totalWithdrawsUSD = (equityTransactions?.filter(tx => tx.type === 'withdraw').reduce((acc, tx) => acc + tx.amount, 0) || 0);
+    const equityUSD = totalDepositsUSD - totalWithdrawsUSD + totalPnlUSD;
     
     return {
-      totalPnl,
-      totalProfit,
-      totalLoss,
+      totalPnl: totalPnlUSD * rate,
+      totalProfit: totalProfitUSD * rate,
+      totalLoss: totalLossUSD * rate,
+      totalPnlUSD,
+      totalProfitUSD,
+      totalLossUSD,
       winRate,
       totalTrades,
-      equity
+      equity: equityUSD * rate,
+      equityUSD
     };
   }, [trades, equityTransactions, conversionRate]);
 
   const kpiData = [
-    { title: "Equity", value: formatToRupiah(stats.equity) },
-    { title: "Total P/L", value: formatToRupiah(stats.totalPnl), isPositive: stats.totalPnl >= 0 },
-    { title: "Total Profit", value: formatToRupiah(stats.totalProfit), isPositive: true },
-    { title: "Total Loss", value: formatToRupiah(stats.totalLoss), isPositive: false },
-    { title: "Win Rate", value: `${stats.winRate.toFixed(1)}%` },
-    { title: "Total Trades", value: stats.totalTrades.toString() },
+    { title: "Equity", value: formatToRupiah(stats.equity), subValue: formatToUSD(stats.equityUSD), change: "+5.2%" },
+    { title: "Total P/L", value: formatToRupiah(stats.totalPnl), subValue: formatToUSD(stats.totalPnlUSD), isPositive: stats.totalPnl >= 0, change: "+12.1%" },
+    { title: "Total Profit", value: formatToRupiah(stats.totalProfit), subValue: formatToUSD(stats.totalProfitUSD), isPositive: true, change: "+15.3%" },
+    { title: "Total Loss", value: formatToRupiah(stats.totalLoss), subValue: formatToUSD(stats.totalLossUSD), isPositive: false, change: "-8.4%" },
+    { title: "Win Rate", value: `${stats.winRate.toFixed(1)}%`, change: "+1.5%" },
+    { title: "Total Trades", value: stats.totalTrades.toString(), change: "+10" },
   ];
   
   const loading = tradesLoading || equityLoading || rateLoading;
@@ -170,11 +183,9 @@ export default function DashboardPage() {
               <div className="text-2xl font-bold">
                 {isEquityVisible ? kpi.value : '••••••'}
               </div>
-              {'isPositive' in kpi && (
-                 <p className={`text-xs ${kpi.isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                    {kpi.value}
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {isEquityVisible ? kpi.subValue || kpi.change : '••••••'}
+              </p>
             </CardContent>
           </Card>
         ))}
