@@ -30,7 +30,8 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DollarSign, Scale } from 'lucide-react';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
-
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 const calculatePnl = (trade: Trade) => {
     if (trade.exitPrice === null || trade.exitPrice === undefined) return 0;
@@ -44,12 +45,14 @@ const calculatorSchema = z.object({
   riskPercentage: z.coerce.number().min(0.1, 'Risiko min 0.1%').max(100, 'Risiko maks 100%'),
   entryPrice: z.coerce.number().positive('Harga masuk harus positif'),
   stopLossPrice: z.coerce.number().positive('Stop loss harus positif'),
+  contractSize: z.coerce.number().optional(),
 });
 
 type CalculatorFormData = z.infer<typeof calculatorSchema>;
 
 export default function CalculatorPage() {
   const { user } = useAuth();
+  const [assetType, setAssetType] = useState('Saham/Kripto');
 
   const { data: rawTrades, loading: tradesLoading } = useCollection<Trade>(
     user ? `users/${user.uid}/trades` : ''
@@ -84,6 +87,7 @@ export default function CalculatorPage() {
       riskPercentage: 1,
       entryPrice: '' as any,
       stopLossPrice: '' as any,
+      contractSize: 100000,
     },
   });
 
@@ -97,23 +101,25 @@ export default function CalculatorPage() {
   }, [currentEquity, setValue]);
 
   const results = useMemo(() => {
-    const { totalEquity, riskPercentage, entryPrice, stopLossPrice } = watchedValues;
+    const { totalEquity, riskPercentage, entryPrice, stopLossPrice, contractSize } = watchedValues;
     if (!totalEquity || !riskPercentage || !entryPrice || !stopLossPrice) {
-      return { riskAmountUSD: 0, positionSize: 0 };
+      return { riskAmountUSD: 0, positionSize: 0, lotSize: 0 };
     }
 
     const riskAmountUSD = totalEquity * (riskPercentage / 100);
     const riskPerUnit = Math.abs(entryPrice - stopLossPrice);
 
     if (riskPerUnit === 0) {
-      return { riskAmountUSD, positionSize: 0 };
+      return { riskAmountUSD, positionSize: 0, lotSize: 0 };
     }
 
     const positionSize = riskAmountUSD / riskPerUnit;
+    const lotSize = (contractSize && contractSize > 0) ? positionSize / contractSize : 0;
 
     return {
       riskAmountUSD,
       positionSize,
+      lotSize,
     };
   }, [watchedValues]);
 
@@ -145,6 +151,24 @@ export default function CalculatorPage() {
           <CardContent>
             <Form {...form}>
               <form className="space-y-6">
+                <div className='space-y-2 mb-4'>
+                    <FormLabel>Tipe Aset</FormLabel>
+                    <RadioGroup
+                        value={assetType}
+                        onValueChange={setAssetType}
+                        className="flex items-center gap-4"
+                    >
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="Saham/Kripto" id="r1" />
+                            <Label htmlFor="r1">Saham / Kripto</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="Forex" id="r2" />
+                            <Label htmlFor="r2">Forex</Label>
+                        </div>
+                    </RadioGroup>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -183,7 +207,7 @@ export default function CalculatorPage() {
                       <FormItem>
                         <FormLabel>Harga Masuk (USD)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" {...field} placeholder="cth: 150.25" />
+                          <Input type="number" step="any" {...field} placeholder="cth: 1.08500" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -196,12 +220,27 @@ export default function CalculatorPage() {
                       <FormItem>
                         <FormLabel>Harga Stop Loss (USD)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" {...field} placeholder="cth: 148.75" />
+                          <Input type="number" step="any" {...field} placeholder="cth: 1.08400" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+                   {assetType === 'Forex' && (
+                    <FormField
+                      control={form.control}
+                      name="contractSize"
+                      render={({ field }) => (
+                        <FormItem className="md:col-span-2">
+                          <FormLabel>Ukuran Kontrak (Contract Size)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="1" {...field} placeholder="cth: 100000" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
                 </div>
               </form>
             </Form>
@@ -228,18 +267,22 @@ export default function CalculatorPage() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground flex items-center gap-2">
                 <Scale className="h-4 w-4" />
-                Ukuran Posisi
+                {assetType === 'Forex' ? 'Ukuran Posisi (Lot)' : 'Ukuran Posisi (Unit)'}
               </span>
               <span className="text-lg font-bold">
-                {results.positionSize.toFixed(4)} Unit
+                {assetType === 'Forex'
+                  ? `${results.lotSize.toFixed(2)} Lot`
+                  : `${results.positionSize.toFixed(4)} Unit`}
               </span>
             </div>
             
              <Separator />
              
              <p className="text-xs text-muted-foreground">
-               *Perhitungan ini adalah 'Unit' murni (misal: lembar saham, koin kripto). 
-               Untuk Forex, Anda perlu membaginya dengan ukuran kontrak (cth: 100,000) untuk mendapatkan Lot standar.
+               {assetType === 'Forex' 
+                ? "*Hasil di atas adalah dalam Lot standar. Unit murni yang dihitung adalah " + results.positionSize.toFixed(2) + "."
+                : "*Hasil di atas adalah 'Unit' murni (misal: lembar saham, koin kripto)."
+               }
              </p>
 
           </CardContent>
