@@ -71,6 +71,16 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           position: "Long",
           tags: [],
           entryReason: "",
+          openDate: new Date(),
+          entryPrice: "" as any,
+          positionSize: "" as any,
+          stopLossPrice: "" as any,
+          takeProfitPrice: "" as any,
+          commission: "" as any,
+          exitPrice: null,
+          closeDate: null,
+          imageUrlBefore: "",
+          imageUrlAfter: "",
         },
   });
 
@@ -82,11 +92,16 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     setIsSubmitting(true);
     
     try {
+      const dataToSave = {
+        ...values,
+        userId: user.uid,
+      };
+
       if (tradeToEdit) {
         // Update logic
         const tradeRef = doc(db, "users", user.uid, "trades", tradeToEdit.id);
         await updateDoc(tradeRef, {
-          ...values,
+          ...dataToSave,
           updatedAt: serverTimestamp(),
         });
         toast({
@@ -95,12 +110,10 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
         });
       } else {
         // Create logic
-        const dataToSave = {
-          ...values,
-          userId: user.uid,
-          createdAt: serverTimestamp(),
-        };
-        await addDoc(collection(db, "users", user.uid, "trades"), dataToSave);
+        await addDoc(collection(db, "users", user.uid, "trades"), {
+            ...dataToSave,
+            createdAt: serverTimestamp(),
+        });
         toast({
           title: "Trade Disimpan",
           description: "Trade baru Anda telah berhasil ditambahkan.",
@@ -229,3 +242,5 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     </Form>
   );
 }
+
+    
