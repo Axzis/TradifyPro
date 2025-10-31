@@ -45,7 +45,6 @@ const calculatorSchema = z.object({
   riskPercentage: z.coerce.number().min(0.1, 'Risiko min 0.1%').max(100, 'Risiko maks 100%'),
   entryPrice: z.coerce.number().positive('Harga masuk harus positif'),
   stopLossPrice: z.coerce.number().positive('Stop loss harus positif'),
-  contractSize: z.coerce.number().optional(),
 });
 
 type CalculatorFormData = z.infer<typeof calculatorSchema>;
@@ -87,21 +86,11 @@ export default function CalculatorPage() {
       riskPercentage: 1,
       entryPrice: '' as any,
       stopLossPrice: '' as any,
-      contractSize: 100000,
     },
   });
 
   const { setValue, watch, formState: { isDirty } } = form;
   const watchedValues = watch();
-
-  // Load contract size from local storage on initial render
-  useEffect(() => {
-    const savedContractSize = localStorage.getItem('calculatorContractSize');
-    if (savedContractSize) {
-        setValue('contractSize', Number(savedContractSize));
-    }
-  }, [setValue]);
-
 
   // Pre-fill equity from database, but only if user hasn't edited it.
   useEffect(() => {
@@ -110,16 +99,11 @@ export default function CalculatorPage() {
     }
   }, [currentEquity, setValue, isDirty]);
 
-  // Save contract size to local storage whenever it changes
-  useEffect(() => {
-      const { contractSize } = watchedValues;
-      if (contractSize && contractSize > 0) {
-          localStorage.setItem('calculatorContractSize', String(contractSize));
-      }
-  }, [watchedValues.contractSize]);
 
   const results = useMemo(() => {
-    const { totalEquity, riskPercentage, entryPrice, stopLossPrice, contractSize } = watchedValues;
+    const { totalEquity, riskPercentage, entryPrice, stopLossPrice } = watchedValues;
+    const contractSize = 100000; // Standard lot size for Forex
+
     if (!totalEquity || !riskPercentage || !entryPrice || !stopLossPrice) {
       return { riskAmountUSD: 0, positionSize: 0, lotSize: 0 };
     }
@@ -132,7 +116,7 @@ export default function CalculatorPage() {
     }
 
     const positionSize = riskAmountUSD / riskPerUnit;
-    const lotSize = (contractSize && contractSize > 0) ? positionSize / contractSize : 0;
+    const lotSize = positionSize / contractSize;
 
     return {
       riskAmountUSD,
@@ -244,21 +228,6 @@ export default function CalculatorPage() {
                       </FormItem>
                     )}
                   />
-                   {assetType === 'Forex' && (
-                    <FormField
-                      control={form.control}
-                      name="contractSize"
-                      render={({ field }) => (
-                        <FormItem className="md:col-span-2">
-                          <FormLabel>Ukuran Kontrak (Contract Size)</FormLabel>
-                          <FormControl>
-                            <Input type="number" step="1" {...field} placeholder="cth: 100000" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
                 </div>
               </form>
             </Form>
@@ -298,7 +267,7 @@ export default function CalculatorPage() {
              
              <p className="text-xs text-muted-foreground">
                {assetType === 'Forex' 
-                ? "*Hasil di atas adalah dalam Lot standar. Unit murni yang dihitung adalah " + results.positionSize.toFixed(2) + "."
+                ? "*Perhitungan lot didasarkan pada contract size standar (100,000)."
                 : "*Hasil di atas adalah 'Unit' murni (misal: lembar saham, koin kripto)."
                }
              </p>
