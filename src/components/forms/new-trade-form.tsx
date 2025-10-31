@@ -32,15 +32,18 @@ const formSchema = z.object({
   position: z.enum(POSITIONS),
   openDate: z.date({ required_error: "Tanggal buka wajib diisi" }),
   entryPrice: z.coerce.number().positive("Harga masuk harus positif"),
+  exitPrice: z.coerce.number().optional().nullable(),
   positionSize: z.coerce.number().positive("Ukuran posisi harus positif"),
   stopLossPrice: z.coerce.number().optional(),
   takeProfitPrice: z.coerce.number().optional(),
   commission: z.coerce.number().optional(),
   tags: z.array(z.string()).optional(),
   entryReason: z.string().optional(),
+  closeDate: z.date().optional().nullable(),
   imageUrlBefore: z.string().optional(),
   imageUrlAfter: z.string().optional(),
 });
+
 
 type NewTradeFormProps = {
   tradeToEdit?: Trade;
@@ -58,6 +61,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
       ? {
           ...tradeToEdit,
           openDate: tradeToEdit.openDate instanceof Date ? tradeToEdit.openDate : (tradeToEdit.openDate as any).toDate(),
+          closeDate: tradeToEdit.closeDate ? (tradeToEdit.closeDate as any).toDate() : null,
           entryPrice: tradeToEdit.entryPrice || 0,
           positionSize: tradeToEdit.positionSize || 0,
         }
@@ -77,15 +81,43 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     }
     setIsSubmitting(true);
     
-    // Logic removed as per instruction. Will be added in the next step.
-    console.log("Form submitted with values:", values);
-    toast({ title: "Form Submitted (Dev)", description: "Logic is currently disabled." });
-
-    // Simulate async operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    setIsSubmitting(false);
-    onFormSubmit?.();
+    try {
+      if (tradeToEdit) {
+        // Update logic
+        const tradeRef = doc(db, "users", user.uid, "trades", tradeToEdit.id);
+        await updateDoc(tradeRef, {
+          ...values,
+          updatedAt: serverTimestamp(),
+        });
+        toast({
+          title: "Trade Diperbarui",
+          description: "Perubahan pada trade Anda telah disimpan.",
+        });
+      } else {
+        // Create logic
+        const dataToSave = {
+          ...values,
+          userId: user.uid,
+          createdAt: serverTimestamp(),
+        };
+        await addDoc(collection(db, "users", user.uid, "trades"), dataToSave);
+        toast({
+          title: "Trade Disimpan",
+          description: "Trade baru Anda telah berhasil ditambahkan.",
+        });
+        form.reset();
+      }
+      onFormSubmit?.();
+    } catch (error: any) {
+        console.error("Trade form error:", error);
+        toast({
+            variant: "destructive",
+            title: "Gagal Menyimpan",
+            description: error.message || "Terjadi kesalahan saat menyimpan trade.",
+        });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const onUploadSuccess = (fieldName: "imageUrlBefore" | "imageUrlAfter") => (res: any) => {
@@ -157,7 +189,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <FormLabel>Screenshot Sebelum</FormLabel>
-                <div className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32 relative">
+                <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                     <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
                     <p>Klik atau tarik untuk upload</p>
                     <IKUpload 
@@ -172,7 +204,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
 
               <div className="space-y-2">
                 <FormLabel>Screenshot Sesudah</FormLabel>
-                <div className="border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32 relative">
+                <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                   <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
                   <p>Klik atau tarik untuk upload</p>
                   <IKUpload 
