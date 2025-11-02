@@ -82,10 +82,10 @@ export default function CalculatorPage() {
   const form = useForm<CalculatorFormData>({
     resolver: zodResolver(calculatorSchema),
     defaultValues: {
-      totalEquity: '' as any,
+      totalEquity: undefined,
       riskPercentage: 1,
-      entryPrice: '' as any,
-      stopLossPrice: '' as any,
+      entryPrice: undefined,
+      stopLossPrice: undefined,
     },
   });
 
@@ -93,6 +93,7 @@ export default function CalculatorPage() {
   const watchedValues = watch();
 
   useEffect(() => {
+    // Hanya set nilai ekuitas dari data jika belum diubah oleh user (isDirty is false)
     if (currentEquity > 0 && !isDirty) {
       setValue('totalEquity', parseFloat(currentEquity.toFixed(2)));
     }
@@ -181,7 +182,7 @@ export default function CalculatorPage() {
                           {isLoading && !isDirty ? (
                              <Skeleton className="h-10 w-full" />
                           ) : (
-                            <Input type="number" step="any" {...field} />
+                            <Input type="number" step="any" {...field} value={field.value ?? ''} />
                           )}
                         </FormControl>
                         <FormMessage />
@@ -208,7 +209,7 @@ export default function CalculatorPage() {
                       <FormItem>
                         <FormLabel>Harga Masuk (USD)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" {...field} placeholder="cth: 1.08500" />
+                          <Input type="number" step="any" {...field} placeholder="cth: 1.08500" value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -221,7 +222,7 @@ export default function CalculatorPage() {
                       <FormItem>
                         <FormLabel>Harga Stop Loss (USD)</FormLabel>
                         <FormControl>
-                          <Input type="number" step="any" {...field} placeholder="cth: 1.08400" />
+                          <Input type="number" step="any" {...field} placeholder="cth: 1.08400" value={field.value ?? ''} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
