@@ -54,7 +54,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import { format, toDate } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import type { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
 import { useCollection } from '@/hooks/use-firestore';
 import type { Trade } from '@/types/trade';
@@ -70,6 +69,18 @@ const calculatePnl = (trade: Trade) => {
   return trade.position === 'Short' ? totalPnl * -1 : totalPnl;
 };
 
+const calculateRRR = (trade: Trade) => {
+    if (!trade.stopLossPrice || !trade.takeProfitPrice) return null;
+
+    const risk = Math.abs(trade.entryPrice - trade.stopLossPrice);
+    if (risk === 0) return null;
+    
+    const reward = Math.abs(trade.takeProfitPrice - trade.entryPrice);
+    
+    const rrr = reward / risk;
+    return rrr.toFixed(2) + 'R';
+}
+
 const safeToDate = (date: any): Date | null => {
     if (!date) return null;
     if (date instanceof Date) return date;
@@ -77,6 +88,12 @@ const safeToDate = (date: any): Date | null => {
     const parsed = toDate(date);
     if (!isNaN(parsed.getTime())) return parsed;
     return null;
+}
+
+const formatDate = (date: any): string => {
+  const d = safeToDate(date);
+  if (!d) return '-';
+  return format(d, 'dd MMM yyyy');
 }
 
 export default function TradeHistoryPage() {
@@ -260,7 +277,6 @@ export default function TradeHistoryPage() {
                     : pnl < 0
                     ? 'Loss'
                     : 'BE';
-                  const openDate = safeToDate(trade.openDate);
 
                   return (
                     <TableRow
@@ -272,7 +288,7 @@ export default function TradeHistoryPage() {
                         {trade.ticker}
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
-                        {openDate ? format(openDate, 'dd MMM yyyy') : '-'}
+                        {formatDate(trade.openDate)}
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">{trade.assetType}</Badge>
@@ -425,6 +441,12 @@ export default function TradeHistoryPage() {
                       ? `${calculatePnl(selectedTrade).toFixed(2)} USD`
                       : '-'}
                   </p>
+                </div>
+                <div>
+                    <p className="text-muted-foreground">R/R Ratio</p>
+                    <p className="font-semibold">
+                        {calculateRRR(selectedTrade) || '-'}
+                    </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Hasil</p>

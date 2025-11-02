@@ -22,7 +22,7 @@ import { TagInput } from "@/components/ui/tag-input";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CalendarIcon, Loader2, UploadCloud } from "lucide-react";
-import { format } from "date-fns";
+import { format, toDate } from "date-fns";
 import { Separator } from "@/components/ui/separator";
 
 import { IKContext, IKUpload } from 'imagekitio-react';
@@ -55,6 +55,15 @@ type NewTradeFormProps = {
   onFormSubmit?: () => void;
 };
 
+const safeToDate = (date: any): Date | null => {
+    if (!date) return null;
+    if (date instanceof Date) return date;
+    if (typeof date.toDate === 'function') return date.toDate();
+    const parsed = toDate(date);
+    if (!isNaN(parsed.getTime())) return parsed;
+    return null;
+}
+
 export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeFormProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -65,8 +74,8 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
     defaultValues: tradeToEdit
       ? {
           ...tradeToEdit,
-          openDate: tradeToEdit.openDate instanceof Date ? tradeToEdit.openDate : (tradeToEdit.openDate as any).toDate(),
-          closeDate: tradeToEdit.closeDate ? (tradeToEdit.closeDate as any).toDate() : null,
+          openDate: safeToDate(tradeToEdit.openDate) || new Date(),
+          closeDate: safeToDate(tradeToEdit.closeDate),
           entryPrice: tradeToEdit.entryPrice || 0,
           positionSize: tradeToEdit.positionSize || 0,
           stopLossPrice: tradeToEdit.stopLossPrice ?? null,
@@ -210,7 +219,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
                 <FormItem><FormLabel>Harga Keluar (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="cth: 110.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="closeDate" render={({ field }) => (
-             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => field.value ? date < field.value : false} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
             )} />
         </div>
 

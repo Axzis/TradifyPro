@@ -18,8 +18,8 @@ export interface Trade {
   positionSize: number;
   commission?: number;
 
-  stopLossPrice?: number;
-  takeProfitPrice?: number;
+  stopLossPrice?: number | null;
+  takeProfitPrice?: number | null;
 
   tags?: string[];
   entryReason?: string;
