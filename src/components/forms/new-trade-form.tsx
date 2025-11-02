@@ -44,9 +44,9 @@ const formSchema = z.object({
   imageUrlBefore: z.string().optional(),
   imageUrlAfter: z.string().optional(),
 })
-.refine(data => (data.exitPrice && !data.closeDate) || (!data.exitPrice && data.closeDate) ? false : true, {
-    message: "Harga keluar dan tanggal tutup harus diisi bersamaan.",
-    path: ["exitPrice"],
+.refine(data => !((data.exitPrice && !data.closeDate) || (!data.exitPrice && data.closeDate)), {
+    message: "Harga keluar dan tanggal tutup harus diisi bersamaan atau dikosongkan bersamaan.",
+    path: ["closeDate"],
 });
 
 
@@ -163,7 +163,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 max-h-[70vh] overflow-y-auto p-2 -mr-2">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <FormField control={form.control} name="ticker" render={({ field }) => (
             <FormItem><FormLabel>Ticker</FormLabel><FormControl><Input placeholder="misal: BTC" {...field} /></FormControl><FormMessage /></FormItem>
           )} />
@@ -178,7 +178,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
         <Separator />
         <h3 className="text-lg font-medium">Detail Entry</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <FormField control={form.control} name="openDate" render={({ field }) => (
              <FormItem className="flex flex-col"><FormLabel>Tanggal Buka</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
           )} />
@@ -193,7 +193,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
           )} />
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <FormField control={form.control} name="stopLossPrice" render={({ field }) => (
             <FormItem><FormLabel>Harga Stop Loss (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
@@ -205,12 +205,12 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
         <Separator />
         <h3 className="text-lg font-medium">Detail Exit (Opsional)</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <FormField control={form.control} name="exitPrice" render={({ field }) => (
                 <FormItem><FormLabel>Harga Keluar (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="cth: 110.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="closeDate" render={({ field }) => (
-             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
             )} />
         </div>
 
@@ -234,12 +234,12 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
             return await response.json();
           }}
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <FormLabel>Screenshot Sebelum</FormLabel>
                 <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                     <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p>Klik atau tarik untuk upload</p>
+                    <p className="text-sm text-muted-foreground">Klik atau tarik untuk upload</p>
                     <IKUpload 
                         fileName={`before-${user?.uid}-${Date.now()}.jpg`}
                         onSuccess={onUploadSuccess('imageUrlBefore')} 
@@ -254,7 +254,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
                 <FormLabel>Screenshot Sesudah</FormLabel>
                 <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                   <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
-                  <p>Klik atau tarik untuk upload</p>
+                  <p className="text-sm text-muted-foreground">Klik atau tarik untuk upload</p>
                   <IKUpload 
                       fileName={`after-${user?.uid}-${Date.now()}.jpg`}
                       onSuccess={onUploadSuccess('imageUrlAfter')} 

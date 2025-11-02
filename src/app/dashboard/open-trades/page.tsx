@@ -184,27 +184,22 @@ export default function OpenTradesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center">
-        <h1 className="text-lg font-semibold md:text-2xl">Posisi Terbuka</h1>
-      </div>
+      <DashboardHeader
+        title="Posisi Terbuka"
+        description="Daftar trade yang masih berjalan dan belum ditutup."
+       />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Trade Aktif</CardTitle>
-          <CardDescription>
-            Daftar trade yang masih berjalan dan belum ditutup.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Tgl Entry</TableHead>
+                <TableHead className="hidden sm:table-cell">Tgl Entry</TableHead>
                 <TableHead>Simbol</TableHead>
-                <TableHead>Arah</TableHead>
+                <TableHead className="hidden sm:table-cell">Arah</TableHead>
                 <TableHead>Harga Entry</TableHead>
                 <TableHead>Stop Loss</TableHead>
-                <TableHead>Ukuran Posisi</TableHead>
+                <TableHead className="hidden sm:table-cell">Ukuran</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -220,21 +215,21 @@ export default function OpenTradesPage() {
               ) : openTrades && openTrades.length > 0 ? (
                 openTrades.map((trade) => (
                   <TableRow key={trade.id}>
-                    <TableCell>{formatDate(trade.openDate)}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{formatDate(trade.openDate)}</TableCell>
                     <TableCell className="font-medium">{trade.ticker}</TableCell>
-                    <TableCell>{trade.position}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{trade.position}</TableCell>
                     <TableCell>{formatCurrencyUSD(trade.entryPrice)}</TableCell>
                     <TableCell>
                       {formatCurrencyUSD(trade.stopLossPrice)}
                     </TableCell>
-                    <TableCell>{trade.positionSize}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{trade.positionSize}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="default"
                         size="sm"
                         onClick={() => handleOpenModal(trade)}
                       >
-                        Tutup Posisi
+                        Tutup
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -311,7 +306,6 @@ export default function OpenTradesPage() {
                           selected={field.value}
                           onSelect={field.onChange}
                           disabled={(date) =>
-                            date > new Date() ||
                             date <
                               ((tradeToClose?.openDate as Timestamp)?.toDate() ||
                                 new Date('1900-01-01'))

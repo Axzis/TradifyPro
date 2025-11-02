@@ -176,7 +176,7 @@ export default function TradeHistoryPage() {
       <div className="flex flex-wrap items-center gap-2">
         <DatePickerWithRange onDateChange={setFilterDateRange} />
         <Select value={filterAssetType} onValueChange={setFilterAssetType}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Semua Aset" />
           </SelectTrigger>
           <SelectContent>
@@ -189,7 +189,7 @@ export default function TradeHistoryPage() {
           </SelectContent>
         </Select>
         <Select value={filterResult} onValueChange={setFilterResult}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Semua Hasil" />
           </SelectTrigger>
           <SelectContent>
@@ -208,11 +208,11 @@ export default function TradeHistoryPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Ticker</TableHead>
-                <TableHead>Tanggal Buka</TableHead>
-                <TableHead>Tipe</TableHead>
+                <TableHead className="hidden md:table-cell">Tanggal Buka</TableHead>
+                <TableHead className="hidden sm:table-cell">Tipe</TableHead>
                 <TableHead>Posisi</TableHead>
                 <TableHead className="text-right">P/L (USD)</TableHead>
-                <TableHead className="text-center">Hasil</TableHead>
+                <TableHead className="hidden sm:table-cell text-center">Hasil</TableHead>
                 <TableHead className="text-right">Aksi</TableHead>
               </TableRow>
             </TableHeader>
@@ -223,10 +223,10 @@ export default function TradeHistoryPage() {
                     <TableCell>
                       <Skeleton className="h-5 w-20" />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Skeleton className="h-5 w-24" />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Skeleton className="h-5 w-16" />
                     </TableCell>
                     <TableCell>
@@ -235,7 +235,7 @@ export default function TradeHistoryPage() {
                     <TableCell className="text-right">
                       <Skeleton className="h-5 w-16 ml-auto" />
                     </TableCell>
-                    <TableCell className="text-center">
+                    <TableCell className="hidden sm:table-cell text-center">
                       <Skeleton className="h-5 w-14 mx-auto" />
                     </TableCell>
                     <TableCell className="text-right">
@@ -271,10 +271,10 @@ export default function TradeHistoryPage() {
                       <TableCell className="font-medium">
                         {trade.ticker}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         {openDate ? format(openDate, 'dd MMM yyyy') : '-'}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">{trade.assetType}</Badge>
                       </TableCell>
                       <TableCell>
@@ -304,7 +304,7 @@ export default function TradeHistoryPage() {
                       >
                         {trade.closeDate ? pnl.toFixed(2) : '-'}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="hidden sm:table-cell text-center">
                         <Badge
                           variant={
                             result === 'Win'

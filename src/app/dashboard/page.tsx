@@ -339,10 +339,10 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row flex-wrap items-center gap-2">
         <DatePickerWithRange onDateChange={setFilterDateRange} />
         <Select value={filterAssetType} onValueChange={setFilterAssetType}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Semua Aset" />
           </SelectTrigger>
           <SelectContent>
@@ -355,7 +355,7 @@ export default function DashboardPage() {
           </SelectContent>
         </Select>
         <Select value={filterStrategy} onValueChange={setFilterStrategy}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Semua Strategi" />
           </SelectTrigger>
           <SelectContent>
