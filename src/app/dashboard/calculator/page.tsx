@@ -250,16 +250,23 @@ export default function CalculatorPage() {
             
             <Separator />
             
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground flex items-center gap-2">
-                <Scale className="h-4 w-4" />
-                {assetType === 'Forex' ? 'Ukuran Posisi (Lot)' : 'Ukuran Posisi (Unit)'}
-              </span>
-              <span className="text-lg font-bold">
-                {assetType === 'Forex'
-                  ? `${results.lotSize.toFixed(2)} Lot`
-                  : `${results.positionSize.toFixed(4)} Unit`}
-              </span>
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground flex items-center gap-2">
+                  <Scale className="h-4 w-4" />
+                  {assetType === 'Forex' ? 'Ukuran Posisi (Lot)' : 'Ukuran Posisi (Unit)'}
+                </span>
+                <span className="text-lg font-bold">
+                  {assetType === 'Forex'
+                    ? `${results.lotSize.toFixed(2)} Lot`
+                    : `${results.positionSize.toFixed(4)} Unit`}
+                </span>
+              </div>
+              {assetType === 'Forex' && results.lotSize > 0 && results.lotSize < 0.01 && (
+                <p className="text-xs text-destructive mt-2">
+                  Peringatan: Lot terlalu kecil (kurang dari 0.01).
+                </p>
+              )}
             </div>
             
              <Separator />
