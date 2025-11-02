@@ -198,16 +198,16 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
             <FormItem><FormLabel>Ukuran Posisi (Unit)</FormLabel><FormControl><Input type="number" step="any" placeholder="10.5" {...field} /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="commission" render={({ field }) => (
-            <FormItem><FormLabel>Komisi (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="1.25" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Komisi (USD) (Opsional)</FormLabel><FormControl><Input type="number" step="any" placeholder="1.25" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <FormField control={form.control} name="stopLossPrice" render={({ field }) => (
-            <FormItem><FormLabel>Harga Stop Loss (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Harga Stop Loss (USD) (Opsional)</FormLabel><FormControl><Input type="number" step="any" placeholder="95.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
           )} />
           <FormField control={form.control} name="takeProfitPrice" render={({ field }) => (
-            <FormItem><FormLabel>Harga Take Profit (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Harga Take Profit (USD) (Opsional)</FormLabel><FormControl><Input type="number" step="any" placeholder="120.00" {...field} value={field.value ?? ''}/></FormControl><FormMessage /></FormItem>
           )} />
         </div>
 
@@ -219,7 +219,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
                 <FormItem><FormLabel>Harga Keluar (USD)</FormLabel><FormControl><Input type="number" step="any" placeholder="cth: 110.00" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="closeDate" render={({ field }) => (
-             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => field.value ? date < field.value : false} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+             <FormItem className="flex flex-col"><FormLabel>Tanggal Tutup</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : <span>Pilih tanggal</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => { const openDate = form.getValues("openDate"); return openDate ? date < openDate : false;}} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
             )} />
         </div>
 
@@ -228,10 +228,10 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
 
         <div className="space-y-4">
             <FormField control={form.control} name="tags" render={({ field }) => (
-                <FormItem><FormLabel>Tags (Strategi, Emosi, dll)</FormLabel><FormControl><TagInput {...field} placeholder="misal: Breakout, FOMO, dll..."/></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Tags (Opsional)</FormLabel><FormControl><TagInput {...field} placeholder="misal: Breakout, FOMO, dll..."/></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="entryReason" render={({ field }) => (
-                <FormItem><FormLabel>Alasan Masuk</FormLabel><FormControl><Textarea placeholder="Alasan teknikal dan fundamental..." {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Alasan Masuk (Opsional)</FormLabel><FormControl><Textarea placeholder="Alasan teknikal dan fundamental..." {...field} /></FormControl><FormMessage /></FormItem>
             )} />
         </div>
 
@@ -245,7 +245,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <FormLabel>Screenshot Sebelum</FormLabel>
+                <FormLabel>Screenshot Sebelum (Opsional)</FormLabel>
                 <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                     <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">Klik atau tarik untuk upload</p>
@@ -260,7 +260,7 @@ export default function NewTradeForm({ tradeToEdit, onFormSubmit }: NewTradeForm
               </div>
 
               <div className="space-y-2">
-                <FormLabel>Screenshot Sesudah</FormLabel>
+                <FormLabel>Screenshot Sesudah (Opsional)</FormLabel>
                 <div className="relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer hover:bg-accent flex flex-col items-center justify-center h-32">
                   <UploadCloud className="h-8 w-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">Klik atau tarik untuk upload</p>
