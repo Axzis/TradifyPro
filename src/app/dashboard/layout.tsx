@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import dynamic from 'next/dynamic';
 import {
   LayoutGrid,
   ActivitySquare,
@@ -12,6 +13,7 @@ import {
   LogOut,
   ChevronDown,
   Plus,
+  Loader2,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { useAuth } from "@/hooks/use-auth";
@@ -40,9 +42,13 @@ import {
   SidebarInset,
 } from "@/components/ui/sidebar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import NewTradeForm from "@/components/forms/new-trade-form";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { auth } from "@/lib/firebase";
+
+const NewTradeForm = dynamic(() => import('@/components/forms/new-trade-form'), {
+  loading: () => <div className="h-96 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>,
+  ssr: false
+});
 
 const navItems = [
   { href: "/dashboard", icon: LayoutGrid, label: "Dashboard" },
@@ -156,7 +162,9 @@ export default function DashboardLayout({
             <DialogHeader>
                 <DialogTitle>Tambah Trade Baru</DialogTitle>
             </DialogHeader>
-            <NewTradeForm onFormSubmit={() => setFormOpen(false)} />
+            <Suspense fallback={<div className="h-96 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+              <NewTradeForm onFormSubmit={() => setFormOpen(false)} />
+            </Suspense>
         </DialogContent>
       </Dialog>
     </AuthStateGate>

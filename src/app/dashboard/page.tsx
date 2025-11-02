@@ -1,6 +1,7 @@
 'use client';
 
-import { Eye, EyeOff, Edit } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { Eye, EyeOff, Edit, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -10,15 +11,6 @@ import {
 } from '@/components/ui/card';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
 import { ChartContainer } from '@/components/ui/chart';
-import {
-  AreaChart,
-  Area,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import {
   Select,
@@ -27,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, Suspense } from 'react';
 import type { DateRange } from 'react-day-picker';
 import type { Timestamp } from 'firebase/firestore';
 import { useAuth } from '@/hooks/use-auth';
@@ -44,7 +36,23 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import NewEquityTransactionForm from '@/components/forms/new-equity-transaction-form';
+
+const NewEquityTransactionForm = dynamic(() => import('@/components/forms/new-equity-transaction-form'), {
+  ssr: false,
+  loading: () => <div className="h-64 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>,
+});
+
+const AreaChart = dynamic(() => import('recharts').then(mod => mod.AreaChart), {
+  ssr: false,
+  loading: () => <Skeleton className="h-[350px] w-full" />,
+});
+const Area = dynamic(() => import('recharts').then(mod => mod.Area), { ssr: false });
+const CartesianGrid = dynamic(() => import('recharts').then(mod => mod.CartesianGrid), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then(mod => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then(mod => mod.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then(mod => mod.Tooltip), { ssr: false });
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => mod.ResponsiveContainer), { ssr: false });
+
 
 const calculatePnl = (trade: Trade) => {
   if (trade.exitPrice === null || trade.exitPrice === undefined) return 0;
@@ -394,9 +402,11 @@ export default function DashboardPage() {
                         <DialogHeader>
                           <DialogTitle>Catat Transaksi Ekuitas</DialogTitle>
                         </DialogHeader>
-                        <NewEquityTransactionForm
-                          onFormSubmit={() => setEquityFormOpen(false)}
-                        />
+                        <Suspense fallback={<div className="h-64 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>}>
+                          <NewEquityTransactionForm
+                            onFormSubmit={() => setEquityFormOpen(false)}
+                          />
+                        </Suspense>
                       </DialogContent>
                     </Dialog>
                   )}
